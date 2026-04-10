@@ -1,0 +1,19 @@
+[tools]
+go = "latest"
+prek = "latest"
+
+[tasks.fmt]
+description = "Format all code"
+run = "gofumpt -w ."
+
+[tasks.lint]
+description = "Lint all code"
+run = "go vet ./..."
+
+[tasks.build]
+description = "Build the binary"
+run = "go build -o dbx ./cmd/dbx"
+
+[tasks.check]
+description = "Full validation (fmt check + vet + build)"
+run = ["gofumpt -d -l . | (! grep .)", "go vet ./...", "go build -o dbx ./cmd/dbx"]

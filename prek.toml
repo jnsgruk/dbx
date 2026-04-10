@@ -1,0 +1,33 @@
+#:schema https://www.schemastore.org/prek.json
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "fmt-check"
+name = "fmt-check"
+entry = "bash -c 'gofumpt -d -l . | (! grep .)'"
+language = "system"
+pass_filenames = false
+fail_fast = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "go-vet"
+name = "go-vet"
+entry = "go vet ./..."
+language = "system"
+files = '\.go$'
+pass_filenames = false
+fail_fast = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "go-build"
+name = "go-build"
+entry = "go build -o dbx ./cmd/dbx"
+language = "system"
+files = '\.go$'
+pass_filenames = false
+fail_fast = true
+stages = ["pre-commit"]
