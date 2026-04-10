@@ -17,3 +17,7 @@ run = "go build -o dbx ./cmd/dbx"
 [tasks.check]
 description = "Full validation (fmt check + vet + build)"
 run = ["gofumpt -d -l . | (! grep .)", "go vet ./...", "go build -o dbx ./cmd/dbx"]
+
+[tasks.install]
+description = "Build and install to /usr/local/bin"
+run = ["go build -o dbx ./cmd/dbx", "sudo install dbx /usr/local/bin/dbx"]
