@@ -31,19 +31,7 @@ var postProvisionScript = strings.Join([]string{
 	"sudo apt-get install -y ssh-import-id openssh-server",
 	"ssh-import-id-gh " + config.GitHubUser,
 	`printf '[hostname]\nssh_only = false\n' >> ~/.config/starship.toml`,
-	// Prevent Docker from dropping the FORWARD chain policy, which breaks
-	// egress from Canonical K8s / Cilium pods. Set FORWARD to ACCEPT, persist
-	// the rules, and ensure IP forwarding sysctls survive reboots.
-	`sudo debconf-set-selections <<PRESEED
-iptables-persistent iptables-persistent/autosave_v4 boolean true
-iptables-persistent iptables-persistent/autosave_v6 boolean true
-PRESEED`,
-	"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent",
-	"sudo iptables -P FORWARD ACCEPT",
-	"sudo ip6tables -P FORWARD ACCEPT",
-	"sudo sed -i 's/:FORWARD DROP/:FORWARD ACCEPT/' /etc/iptables/rules.v4 2>/dev/null || true",
-	"sudo sed -i 's/:FORWARD DROP/:FORWARD ACCEPT/' /etc/iptables/rules.v6 2>/dev/null || true",
-	"sudo netfilter-persistent save",
+	// Enable ip_forwarding in the kernel.
 	`printf 'net.ipv4.ip_forward=1\nnet.ipv6.conf.all.forwarding=1\n' | sudo tee /etc/sysctl.d/99-k8s-forwarding.conf`,
 	"sudo sysctl --system",
 }, "\n")
