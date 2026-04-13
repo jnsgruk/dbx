@@ -366,6 +366,13 @@ func createFull(name string, opts CreateOpts, st state.State, cwd string) (strin
 		return "", fmt.Errorf("running provisioning: %w", err)
 	}
 
+	if opts.VM {
+		slog.Info("Running VM provisioning", "name", name)
+		if err := provision.RunVM("", name, config.User); err != nil {
+			return "", fmt.Errorf("running vm provisioning: %w", err)
+		}
+	}
+
 	if opts.TailscaleKey != "" {
 		slog.Info("Setting up Tailscale", "name", name)
 		deviceID, err := provision.RunTailscale(name, config.User, opts.TailscaleKey)

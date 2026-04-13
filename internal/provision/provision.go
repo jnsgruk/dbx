@@ -89,6 +89,24 @@ func RunExtras(instanceName, user string, extras []string) error {
 	return nil
 }
 
+// vmScript runs VM-specific setup after base provisioning.
+var vmScript = strings.Join([]string{
+	"sudo fallocate -l 8G /swapfile",
+	"sudo chmod 600 /swapfile",
+	"sudo mkswap /swapfile",
+	"sudo swapon /swapfile",
+	`printf '/swapfile none swap sw 0 0\n' | sudo tee -a /etc/fstab`,
+}, "\n")
+
+// RunVM runs VM-specific provisioning (e.g. swapfile setup).
+func RunVM(project, instanceName, user string) error {
+	slog.Info("Provisioning", "command", "vm script")
+	if err := lxc.ExecScript(project, instanceName, user, vmScript); err != nil {
+		return fmt.Errorf("running vm script: %w", err)
+	}
+	return nil
+}
+
 func Run(instanceName, user string, extras []string) error {
 	if err := RunBase("", instanceName, user); err != nil {
 		return err

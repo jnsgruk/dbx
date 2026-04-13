@@ -82,6 +82,14 @@ func BuildBase(baseName string, opts CreateOpts) error {
 		return fmt.Errorf("running base provisioning: %w", err)
 	}
 
+	if opts.VM {
+		slog.Info("Running VM provisioning", "name", baseName)
+		if err := provision.RunVM(baseProject, baseName, config.User); err != nil {
+			_ = lxc.Delete(baseProject, baseName)
+			return fmt.Errorf("running vm provisioning: %w", err)
+		}
+	}
+
 	// Remove the scripts mount so the base is clean for copying
 	_ = lxc.DeviceRemove(baseProject, baseName, "scripts")
 
