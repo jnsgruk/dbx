@@ -1,7 +1,7 @@
 sudo snap install k8s --classic --channel 1.34-classic/stable
 sudo snap refresh --hold k8s
 
-cat <<EOF | sudo k8s bootstrap --address 127.0.0.1 --file -
+cat <<EOF | sudo k8s bootstrap --file -
 containerd-base-dir: /opt/ck8s
 cluster-config:
   # gateway:
