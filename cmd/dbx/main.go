@@ -62,9 +62,9 @@ type createFlags struct {
 func (f *createFlags) register(fs *pflag.FlagSet) {
 	fs.BoolVar(&f.vm, "vm", false, "create a virtual machine instead of a container")
 	fs.StringVarP(&f.image, "image", "i", config.Image, "base image")
-	fs.StringVarP(&f.cpu, "cpu", "c", "", "CPU limit (e.g. 4)")
-	fs.StringVarP(&f.mem, "mem", "m", "", "memory limit (e.g. 8GiB)")
-	fs.StringVarP(&f.disk, "disk", "d", "", "disk size (e.g. 50GiB)")
+	fs.StringVarP(&f.cpu, "cpu", "c", "", "CPU limit (default 16 for VMs)")
+	fs.StringVarP(&f.mem, "mem", "m", "", "memory limit (default 16GiB for VMs)")
+	fs.StringVarP(&f.disk, "disk", "d", "", "disk size (default 100GiB for VMs)")
 	fs.StringVarP(&f.extras, "extras", "e", "", "comma-separated extras: "+strings.Join(provision.ListExtras(), ", "))
 	fs.BoolVar(&f.tailscale, "tailscale", false, "install and authenticate tailscale")
 }
