@@ -111,6 +111,7 @@ func resolveInstance(args []string) (string, error) {
 	}
 	st := state.LoadPruned()
 	cwd, _ := os.Getwd()
+	cwd, _ = filepath.EvalSymlinks(cwd)
 	name, ok := st[cwd]
 	if !ok {
 		return "", fmt.Errorf("no instance associated with %s", cwd)
@@ -133,6 +134,7 @@ func newRootCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cwd, _ := os.Getwd()
+			cwd, _ = filepath.EvalSymlinks(cwd)
 			st := state.LoadPruned()
 
 			if name, ok := st[cwd]; ok {

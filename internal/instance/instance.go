@@ -60,6 +60,7 @@ func imageBase(image string) string {
 func DefaultMounts() []Mount {
 	home, _ := os.UserHomeDir()
 	cwd, _ := os.Getwd()
+	cwd, _ = filepath.EvalSymlinks(cwd)
 
 	uhome := "/home/" + config.User
 	return []Mount{
@@ -244,6 +245,7 @@ func configureMounts(name string, opts CreateOpts, st state.State, cwd, waitUser
 // pre-loaded state to avoid a redundant LoadPruned call.
 func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 	cwd, _ := os.Getwd()
+	cwd, _ = filepath.EvalSymlinks(cwd)
 	if st == nil {
 		st = state.LoadPruned()
 	}
