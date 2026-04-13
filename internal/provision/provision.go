@@ -31,6 +31,21 @@ var postProvisionScript = strings.Join([]string{
 	"sudo apt-get install -y ssh-import-id openssh-server",
 	"ssh-import-id-gh " + config.GitHubUser,
 	`printf '[hostname]\nssh_only = false\n' >> ~/.config/starship.toml`,
+	// Prevent Docker from breaking LXD bridge traffic by inserting ACCEPT rules
+	// into the DOCKER-USER chain. The chain is created here so rules persist even
+	// if Docker is installed later. iptables-persistent saves them across reboots.
+	`sudo debconf-set-selections <<PRESEED
+iptables-persistent iptables-persistent/autosave_v4 boolean true
+iptables-persistent iptables-persistent/autosave_v6 boolean true
+PRESEED`,
+	"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent",
+	"sudo iptables  -N DOCKER-USER 2>/dev/null || true",
+	"sudo ip6tables -N DOCKER-USER 2>/dev/null || true",
+	"sudo iptables  -I DOCKER-USER -i lxdbr0 -j ACCEPT",
+	"sudo ip6tables -I DOCKER-USER -i lxdbr0 -j ACCEPT",
+	"sudo iptables  -I DOCKER-USER -o lxdbr0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT",
+	"sudo ip6tables -I DOCKER-USER -o lxdbr0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT",
+	"sudo netfilter-persistent save",
 }, "\n")
 
 func ListExtras() []string {
