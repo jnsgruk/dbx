@@ -105,6 +105,17 @@ func WaitForNetwork(project, name string, timeout time.Duration) error {
 	return nil
 }
 
+func WaitForSnapd(project, name string, timeout time.Duration) error {
+	ok := pollUntil(timeout, func() bool {
+		_, err := lxc.Exec(project, name, "snap", "version")
+		return err == nil
+	})
+	if !ok {
+		return fmt.Errorf("timed out waiting for snapd in instance %q", name)
+	}
+	return nil
+}
+
 // CreateUser creates a new user and group inside the instance with the given
 // name and uid/gid, plus passwordless sudo access. The default cloud-init
 // user (ubuntu, uid 1000) is reassigned to a high uid first if it would
@@ -283,6 +294,11 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 		if err := WaitForNetwork("", name, 60*time.Second); err != nil {
 			return "", fmt.Errorf("waiting for network: %w", err)
 		}
+
+		slog.Info("Waiting for snapd", "name", name)
+		if err := WaitForSnapd("", name, 60*time.Second); err != nil {
+			return "", fmt.Errorf("waiting for snapd: %w", err)
+		}
 	}
 
 	if len(opts.Extras) > 0 {
@@ -336,6 +352,11 @@ func createFull(name string, opts CreateOpts, st state.State, cwd string) (strin
 	slog.Info("Waiting for network", "name", name)
 	if err := WaitForNetwork("", name, 60*time.Second); err != nil {
 		return "", fmt.Errorf("waiting for network: %w", err)
+	}
+
+	slog.Info("Waiting for snapd", "name", name)
+	if err := WaitForSnapd("", name, 60*time.Second); err != nil {
+		return "", fmt.Errorf("waiting for snapd: %w", err)
 	}
 
 	slog.Info("Running provisioning", "name", name)
