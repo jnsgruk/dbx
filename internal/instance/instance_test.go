@@ -1,0 +1,102 @@
+package instance
+
+import (
+	"regexp"
+	"testing"
+	"time"
+)
+
+func TestImageBase(t *testing.T) {
+	tests := []struct {
+		name  string
+		image string
+		want  string
+	}{
+		{name: "standard image", image: "ubuntu:questing", want: "questing"},
+		{name: "no colon", image: "myimage", want: "myimage"},
+		{name: "multiple colons", image: "registry:port:tag", want: "tag"},
+		{name: "trailing colon", image: "ubuntu:", want: ""},
+		{name: "colon at start", image: ":foo", want: "foo"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := imageBase(tt.image)
+			if got != tt.want {
+				t.Errorf("imageBase(%q) = %q, want %q", tt.image, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBaseName(t *testing.T) {
+	tests := []struct {
+		name  string
+		image string
+		vm    bool
+		want  string
+	}{
+		{name: "container", image: "ubuntu:questing", vm: false, want: "base-questing-container"},
+		{name: "vm", image: "ubuntu:questing", vm: true, want: "base-questing-vm"},
+		{name: "different image", image: "ubuntu:noble", vm: false, want: "base-noble-container"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BaseName(tt.image, tt.vm)
+			if got != tt.want {
+				t.Errorf("BaseName(%q, %v) = %q, want %q", tt.image, tt.vm, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerateName(t *testing.T) {
+	pattern := regexp.MustCompile(`^myproject-questing-[0-9a-f]{4}$`)
+
+	name, err := GenerateName("myproject", "ubuntu:questing")
+	if err != nil {
+		t.Fatalf("GenerateName returned error: %v", err)
+	}
+	if !pattern.MatchString(name) {
+		t.Errorf("GenerateName() = %q, does not match pattern %s", name, pattern)
+	}
+
+	name2, err := GenerateName("myproject", "ubuntu:questing")
+	if err != nil {
+		t.Fatalf("GenerateName returned error: %v", err)
+	}
+	if name == name2 {
+		t.Errorf("two GenerateName calls produced identical names: %q", name)
+	}
+}
+
+func TestPollUntil(t *testing.T) {
+	t.Run("immediately true", func(t *testing.T) {
+		ok := pollUntil(time.Second, func() bool { return true })
+		if !ok {
+			t.Error("pollUntil returned false when check immediately returns true")
+		}
+	})
+
+	t.Run("becomes true after several calls", func(t *testing.T) {
+		calls := 0
+		ok := pollUntil(5*time.Second, func() bool {
+			calls++
+			return calls >= 3
+		})
+		if !ok {
+			t.Error("pollUntil returned false when check should have succeeded")
+		}
+		if calls < 3 {
+			t.Errorf("expected at least 3 calls, got %d", calls)
+		}
+	})
+
+	t.Run("timeout reached", func(t *testing.T) {
+		ok := pollUntil(50*time.Millisecond, func() bool { return false })
+		if ok {
+			t.Error("pollUntil returned true when check always returns false")
+		}
+	})
+}

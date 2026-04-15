@@ -136,7 +136,7 @@ func LoadDevices() map[string]string {
 	return devices
 }
 
-func statePath() string {
+var statePath = func() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".local", "share", "dbx", "tailscale.json")
 }

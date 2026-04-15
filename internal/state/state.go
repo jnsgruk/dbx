@@ -13,7 +13,7 @@ import (
 // State maps absolute directory paths to LXD instance names.
 type State map[string]string
 
-func statePath() string {
+var statePath = func() string {
 	dir, _ := os.UserHomeDir()
 	return filepath.Join(dir, ".local", "share", "dbx", "state.json")
 }
