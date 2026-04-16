@@ -133,7 +133,7 @@ func ExecScript(project, name, user, script string) error {
 }
 
 func FilePush(name, source, dest string) error {
-	_, err := Run("file", "push", source, name+dest)
+	_, err := Run("file", "push", "--create-dirs", source, name+dest)
 	return err
 }
 
