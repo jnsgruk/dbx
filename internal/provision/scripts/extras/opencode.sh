@@ -1,1 +1,1 @@
-mise use -g opencode-ai@latest
+mise use -g opencode@latest

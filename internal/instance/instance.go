@@ -70,7 +70,7 @@ func DefaultMounts() []Mount {
 		{Name: "claudejson", Source: filepath.Join(home, ".claude.json"), Dest: filepath.Join(uhome, ".claude.json"), File: true},
 		{Name: "ghdir", Source: filepath.Join(home, ".config", "gh"), Dest: filepath.Join(uhome, ".config", "gh")},
 		{Name: "opencodecfg", Source: filepath.Join(home, ".config", "opencode"), Dest: filepath.Join(uhome, ".config", "opencode")},
-		{Name: "opencodeauth", Source: filepath.Join(home, ".local", "share", "opencode", "auth.json"), Dest: filepath.Join(uhome, ".local", "share", "opencode", "auth.json"), File: true},
+		{Name: "opencodedata", Source: filepath.Join(home, ".local", "share", "opencode"), Dest: filepath.Join(uhome, ".local", "share", "opencode")},
 		{Name: "atuindir", Source: filepath.Join(home, ".local", "share", "atuin"), Dest: filepath.Join(uhome, ".local", "share", "atuin")},
 	}
 }
