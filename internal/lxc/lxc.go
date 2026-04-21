@@ -137,8 +137,12 @@ func FilePush(name, source, dest string) error {
 	return err
 }
 
-func Shell(name, user string) error {
-	cmd := exec.Command("lxc", "exec", name, "--", "sudo", "-u", user, "-i", config.Shell)
+func Shell(name, user, dir string) error {
+	args := []string{"exec", name, "--", "sudo", "-u", user, "-i", config.Shell}
+	if dir != "" {
+		args = append(args, "-C", "cd "+dir+" 2>/dev/null")
+	}
+	cmd := exec.Command("lxc", args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

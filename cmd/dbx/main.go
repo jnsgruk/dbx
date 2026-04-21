@@ -105,18 +105,25 @@ func (f *createFlags) opts() (instance.CreateOpts, error) {
 	}, nil
 }
 
-func resolveInstance(args []string) (string, error) {
+func resolveInstance(args []string) (name, cwd string, err error) {
 	if len(args) == 1 {
-		return args[0], nil
+		return args[0], "", nil
 	}
 	st := state.LoadPruned()
-	cwd, _ := os.Getwd()
+	cwd, _ = os.Getwd()
 	cwd, _ = filepath.EvalSymlinks(cwd)
 	name, ok := st[cwd]
 	if !ok {
-		return "", fmt.Errorf("no instance associated with %s", cwd)
+		return "", "", fmt.Errorf("no instance associated with %s", cwd)
 	}
-	return name, nil
+	return name, cwd, nil
+}
+
+func projectDir(cwd string) string {
+	if cwd == "" {
+		return ""
+	}
+	return filepath.Join("/home", config.User, filepath.Base(cwd))
 }
 
 func newRootCmd() *cobra.Command {
@@ -141,7 +148,7 @@ func newRootCmd() *cobra.Command {
 				if err := instance.EnsureRunning(name); err != nil {
 					return err
 				}
-				return lxc.Shell(name, config.User)
+				return lxc.Shell(name, config.User, projectDir(cwd))
 			}
 
 			flags.applyVMDefaults(cmd)
@@ -163,7 +170,7 @@ func newRootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return lxc.Shell(name, config.User)
+			return lxc.Shell(name, config.User, projectDir(cwd))
 		},
 	}
 
@@ -218,14 +225,14 @@ func newShellCmd() *cobra.Command {
 		Short: "Open an interactive shell in an instance",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, err := resolveInstance(args)
+			name, cwd, err := resolveInstance(args)
 			if err != nil {
 				return err
 			}
 			if err := instance.EnsureRunning(name); err != nil {
 				return err
 			}
-			return lxc.Shell(name, config.User)
+			return lxc.Shell(name, config.User, projectDir(cwd))
 		},
 	}
 }
@@ -299,7 +306,7 @@ func newStopCmd() *cobra.Command {
 		Short: "Stop an instance",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, err := resolveInstance(args)
+			name, _, err := resolveInstance(args)
 			if err != nil {
 				return err
 			}
@@ -316,7 +323,7 @@ func newRmCmd() *cobra.Command {
 		Short:   "Force-delete an instance",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, err := resolveInstance(args)
+			name, _, err := resolveInstance(args)
 			if err != nil {
 				return err
 			}
