@@ -1,5 +1,6 @@
 [tools]
 go = "latest"
+gofumpt = "latest"
 prek = "latest"
 
 [tasks.fmt]
