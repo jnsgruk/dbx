@@ -77,5 +77,5 @@ dbx --extras k8s,claude
 
 1. **User creation** -- `dbx` creates a user inside the instance matching your host username and UID, with passwordless sudo. The cloud-init `ubuntu` user is remapped out of the way.
 2. **Base instances** -- `dbx` builds a base instance with standard provisioning (shell config, SSH keys, common packages) and caches it in a separate LXD project. Subsequent creates copy from this base for fast startup.
-3. **Mounts** -- The current directory, scripts, and config directories (`~/.claude`, `~/.config/gh`, `~/.local/share/atuin`) are bind-mounted into the instance. Container ID mapping ensures host UID ownership is preserved.
+3. **Mounts** -- The current directory, scripts, and config directories (`~/.claude`, `~/.config/gh`, `~/.config/opencode`, `~/.local/share/atuin`) are bind-mounted into the instance. OpenCode auth (`~/.local/share/opencode/auth.json`) is shared as a single-file mount so login persists across instances, while OpenCode runtime state remains isolated per instance. Container ID mapping ensures host UID ownership is preserved.
 4. **State tracking** -- A JSON state file (`~/.local/share/dbx/state.json`) maps working directories to instance names, so `dbx` can reconnect you to the right instance automatically.

@@ -26,7 +26,8 @@ type Mount struct {
 	Name   string
 	Source string
 	Dest   string
-	File   bool // true for single files (VMs can't mount these, they get copied instead)
+	File   bool   // true for single files (VMs can't mount these, they get copied instead)
+	Mode   string // file permission mode to preserve on VM push (e.g. "600"); empty means default
 }
 
 type CreateOpts struct {
@@ -64,13 +65,13 @@ func DefaultMounts() []Mount {
 
 	uhome := "/home/" + config.User
 	return []Mount{
-		{Name: "project", Source: cwd, Dest: filepath.Join(uhome, "project")},
+		{Name: "project", Source: cwd, Dest: filepath.Join(uhome, filepath.Base(cwd))},
 		{Name: "scripts", Source: filepath.Join(home, "scripts"), Dest: filepath.Join(uhome, "scripts")},
 		{Name: "claudedir", Source: filepath.Join(home, ".claude"), Dest: filepath.Join(uhome, ".claude")},
 		{Name: "claudejson", Source: filepath.Join(home, ".claude.json"), Dest: filepath.Join(uhome, ".claude.json"), File: true},
 		{Name: "ghdir", Source: filepath.Join(home, ".config", "gh"), Dest: filepath.Join(uhome, ".config", "gh")},
 		{Name: "opencodecfg", Source: filepath.Join(home, ".config", "opencode"), Dest: filepath.Join(uhome, ".config", "opencode")},
-		{Name: "opencodedata", Source: filepath.Join(home, ".local", "share", "opencode"), Dest: filepath.Join(uhome, ".local", "share", "opencode")},
+		{Name: "opencodeauth", Source: filepath.Join(home, ".local", "share", "opencode", "auth.json"), Dest: filepath.Join(uhome, ".local", "share", "opencode", "auth.json"), File: true, Mode: "600"},
 		{Name: "atuindir", Source: filepath.Join(home, ".local", "share", "atuin"), Dest: filepath.Join(uhome, ".local", "share", "atuin")},
 	}
 }
@@ -225,6 +226,27 @@ func configureMounts(name string, opts CreateOpts, st state.State, cwd, waitUser
 		return err
 	}
 
+	// Fix ownership of parent directories created by LXD for file mounts.
+	// LXD creates these as root, which prevents the user from writing siblings.
+	chownArg := fmt.Sprintf("%d:%d", hostUID(), hostUID())
+	seen := map[string]bool{}
+	for _, m := range mounts {
+		if !m.File {
+			continue
+		}
+		if _, err := os.Stat(m.Source); os.IsNotExist(err) {
+			continue
+		}
+		parent := filepath.Dir(m.Dest)
+		if seen[parent] {
+			continue
+		}
+		seen[parent] = true
+		if _, err := lxc.Exec("", name, "chown", chownArg, parent); err != nil {
+			slog.Warn("Fixing file mount parent ownership", "path", parent, "error", err)
+		}
+	}
+
 	if opts.VM {
 		for _, m := range mounts {
 			if !m.File {
@@ -236,6 +258,15 @@ func configureMounts(name string, opts CreateOpts, st state.State, cwd, waitUser
 			slog.Info("Copying file into VM", "source", m.Source, "dest", m.Dest)
 			if err := lxc.FilePush(name, m.Source, m.Dest); err != nil {
 				return fmt.Errorf("copying file %s: %w", m.Name, err)
+			}
+			chownArg := fmt.Sprintf("%d:%d", hostUID(), hostUID())
+			if _, err := lxc.Exec("", name, "chown", chownArg, m.Dest); err != nil {
+				return fmt.Errorf("setting ownership on %s: %w", m.Name, err)
+			}
+			if m.Mode != "" {
+				if _, err := lxc.Exec("", name, "chmod", m.Mode, m.Dest); err != nil {
+					return fmt.Errorf("setting permissions on %s: %w", m.Name, err)
+				}
 			}
 		}
 	}
