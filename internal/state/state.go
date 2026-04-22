@@ -5,13 +5,14 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/jnsgruk/dbx/internal/lxc"
 	"github.com/jnsgruk/dbx/internal/tailscale"
 )
 
 // State maps absolute directory paths to LXD instance names.
-type State map[string]string
+type State map[string][]string
 
 var statePath = func() string {
 	dir, _ := os.UserHomeDir()
@@ -52,17 +53,27 @@ func Prune(s State) {
 		return
 	}
 	liveInstances := make(map[string]struct{})
-	for _, name := range s {
-		if _, ok := instances[name]; ok {
-			liveInstances[name] = struct{}{}
+	for _, names := range s {
+		for _, name := range names {
+			if _, ok := instances[name]; ok {
+				liveInstances[name] = struct{}{}
+			}
 		}
 	}
 	tailscale.PruneDevices(liveInstances)
 
-	for dir, name := range s {
-		if _, ok := instances[name]; !ok {
-			slog.Debug("Pruning stale instance", "dir", dir, "name", name)
+	for dir, names := range s {
+		alive := slices.DeleteFunc(slices.Clone(names), func(name string) bool {
+			if _, ok := instances[name]; !ok {
+				slog.Debug("Pruning stale instance", "dir", dir, "name", name)
+				return true
+			}
+			return false
+		})
+		if len(alive) == 0 {
 			delete(s, dir)
+		} else {
+			s[dir] = alive
 		}
 	}
 }
@@ -79,9 +90,12 @@ func LoadPruned() State {
 
 // RemoveByName deletes all entries matching the given instance name.
 func RemoveByName(s State, name string) {
-	for dir, n := range s {
-		if n == name {
+	for dir, names := range s {
+		filtered := slices.DeleteFunc(slices.Clone(names), func(n string) bool { return n == name })
+		if len(filtered) == 0 {
 			delete(s, dir)
+		} else {
+			s[dir] = filtered
 		}
 	}
 }

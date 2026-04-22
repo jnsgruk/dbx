@@ -3,15 +3,16 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
 func TestRemoveByName(t *testing.T) {
 	t.Run("removes matching entries", func(t *testing.T) {
 		s := State{
-			"/home/user/project1": "instance-a",
-			"/home/user/project2": "instance-b",
-			"/home/user/project3": "instance-a",
+			"/home/user/project1": {"instance-a"},
+			"/home/user/project2": {"instance-b"},
+			"/home/user/project3": {"instance-a"},
 		}
 		RemoveByName(s, "instance-a")
 
@@ -23,10 +24,25 @@ func TestRemoveByName(t *testing.T) {
 		}
 	})
 
+	t.Run("removes name from multi-instance directory", func(t *testing.T) {
+		s := State{
+			"/home/user/project1": {"instance-a", "instance-b"},
+		}
+		RemoveByName(s, "instance-a")
+
+		if len(s) != 1 {
+			t.Fatalf("expected 1 directory remaining, got %d: %v", len(s), s)
+		}
+		names := s["/home/user/project1"]
+		if len(names) != 1 || names[0] != "instance-b" {
+			t.Errorf("expected [instance-b], got %v", names)
+		}
+	})
+
 	t.Run("no match leaves state unchanged", func(t *testing.T) {
 		s := State{
-			"/home/user/project1": "instance-a",
-			"/home/user/project2": "instance-b",
+			"/home/user/project1": {"instance-a"},
+			"/home/user/project2": {"instance-b"},
 		}
 		RemoveByName(s, "instance-c")
 		if len(s) != 2 {
@@ -67,8 +83,8 @@ func TestSaveAndLoad(t *testing.T) {
 	withTempStatePath(t, "dbx/state.json")
 
 	original := State{
-		"/home/user/project1": "instance-a",
-		"/home/user/project2": "instance-b",
+		"/home/user/project1": {"instance-a"},
+		"/home/user/project2": {"instance-b", "instance-c"},
 	}
 	if err := Save(original); err != nil {
 		t.Fatalf("Save returned error: %v", err)
@@ -79,8 +95,8 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("expected %d entries, got %d", len(original), len(loaded))
 	}
 	for k, v := range original {
-		if loaded[k] != v {
-			t.Errorf("loaded[%q] = %q, want %q", k, loaded[k], v)
+		if !slices.Equal(loaded[k], v) {
+			t.Errorf("loaded[%q] = %v, want %v", k, loaded[k], v)
 		}
 	}
 }
