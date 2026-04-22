@@ -57,6 +57,8 @@ type createFlags struct {
 	disk      string
 	extras    string
 	tailscale bool
+	name      string
+	forceNew  bool
 }
 
 func (f *createFlags) register(fs *pflag.FlagSet) {
@@ -112,11 +114,14 @@ func resolveInstance(args []string) (name, cwd string, err error) {
 	st := state.LoadPruned()
 	cwd, _ = os.Getwd()
 	cwd, _ = filepath.EvalSymlinks(cwd)
-	name, ok := st[cwd]
-	if !ok {
+	names := st[cwd]
+	if len(names) == 0 {
 		return "", "", fmt.Errorf("no instance associated with %s", cwd)
 	}
-	return name, cwd, nil
+	if len(names) == 1 {
+		return names[0], cwd, nil
+	}
+	return "", "", fmt.Errorf("directory has multiple instances: %s (specify one as argument)", strings.Join(names, ", "))
 }
 
 func projectDir(cwd string) string {
@@ -124,6 +129,22 @@ func projectDir(cwd string) string {
 		return ""
 	}
 	return filepath.Join("/home", config.User, filepath.Base(cwd))
+}
+
+// findInstance returns the name of an existing instance to connect to based on
+// the instances associated with the current directory and the provided name
+// filter. It returns an empty name when a new instance should be created.
+func findInstance(names []string, name string) (string, error) {
+	if name != "" {
+		if slices.Contains(names, name) {
+			return name, nil
+		}
+		return "", nil
+	}
+	if len(names) == 1 {
+		return names[0], nil
+	}
+	return "", fmt.Errorf("directory has multiple instances: %s (use -n to select or --new to create)", strings.Join(names, ", "))
 }
 
 func newRootCmd() *cobra.Command {
@@ -144,17 +165,27 @@ func newRootCmd() *cobra.Command {
 			cwd, _ = filepath.EvalSymlinks(cwd)
 			st := state.LoadPruned()
 
-			if name, ok := st[cwd]; ok {
-				if err := instance.EnsureRunning(name); err != nil {
+			if !flags.forceNew && len(st[cwd]) > 0 {
+				target, err := findInstance(st[cwd], flags.name)
+				if err != nil {
 					return err
 				}
-				return lxc.Shell(name, config.User, projectDir(cwd))
+				if target != "" {
+					if err := instance.EnsureRunning(target); err != nil {
+						return err
+					}
+					return lxc.Shell(target, config.User, projectDir(cwd))
+				}
 			}
 
 			flags.applyVMDefaults(cmd)
 			opts, err := flags.opts()
 			if err != nil {
 				return err
+			}
+
+			if flags.name != "" {
+				opts.Name = flags.name
 			}
 
 			if flags.tailscale {
@@ -176,6 +207,8 @@ func newRootCmd() *cobra.Command {
 
 	root.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "info", "log verbosity: debug, info, warn, error")
 	flags.register(root.Flags())
+	root.Flags().StringVarP(&flags.name, "name", "n", "", "instance hostname")
+	root.Flags().BoolVar(&flags.forceNew, "new", false, "create a new instance even if one exists for this directory")
 
 	root.AddCommand(newCreateCmd())
 	root.AddCommand(newShellCmd())
@@ -264,12 +297,14 @@ func newLsCmd() *cobra.Command {
 
 			home, _ := os.UserHomeDir()
 			entries := make([]entry, 0, len(st))
-			for dir, name := range st {
+			for dir, names := range st {
 				display := dir
 				if home != "" && strings.HasPrefix(dir, home) {
 					display = "~" + dir[len(home):]
 				}
-				entries = append(entries, entry{name: name, dir: display, info: allInfo[name]})
+				for _, name := range names {
+					entries = append(entries, entry{name: name, dir: display, info: allInfo[name]})
+				}
 			}
 			sort.Slice(entries, func(i, j int) bool {
 				return entries[i].info.CreatedAt.After(entries[j].info.CreatedAt)
