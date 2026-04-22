@@ -22,6 +22,9 @@ func baseCommands(user string) []string {
 	return []string{
 		fmt.Sprintf("mkdir -p ~/.local ~/.config && sudo chown -R %[1]s:%[1]s ~/.local ~/.config", user),
 		"source ~/scripts/probuntu/provision-headless",
+		`export DEBIAN_FRONTEND=noninteractive && curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null`,
+		`curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list`,
+		`sudo apt-get update && sudo apt-get install -y tailscale`,
 	}
 }
 
@@ -114,13 +117,6 @@ func Run(instanceName, user string, extras []string) error {
 	return RunExtras(instanceName, user, extras)
 }
 
-// tailscaleCommands installs the Tailscale package from the official apt repo.
-var tailscaleCommands = []string{
-	`export DEBIAN_FRONTEND=noninteractive && curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null`,
-	`curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list`,
-	`sudo apt-get update && sudo apt-get install -y tailscale`,
-}
-
 // tailscaleStatus is the subset of `tailscale status --json` we need.
 type tailscaleStatus struct {
 	Self struct {
@@ -128,16 +124,9 @@ type tailscaleStatus struct {
 	} `json:"Self"`
 }
 
-// RunTailscale installs tailscale and authenticates using the given auth key.
+// RunTailscale authenticates tailscale using the given auth key.
 // It returns the device ID assigned by the tailnet.
 func RunTailscale(instanceName, user, authKey string) (string, error) {
-	for _, cmd := range tailscaleCommands {
-		slog.Info("Provisioning Tailscale", "command", cmd)
-		if err := lxc.ExecScript("", instanceName, user, cmd); err != nil {
-			return "", fmt.Errorf("running tailscale provisioning: %w", err)
-		}
-	}
-
 	authCmd := fmt.Sprintf("sudo tailscale up --auth-key=%s --ssh --operator=%s", authKey, user)
 	slog.Info("Authenticating Tailscale")
 	if err := lxc.ExecScript("", instanceName, user, authCmd); err != nil {

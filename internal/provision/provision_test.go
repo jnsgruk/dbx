@@ -36,6 +36,10 @@ func TestBaseCommands(t *testing.T) {
 	if !found {
 		t.Errorf("baseCommands(\"testuser\") does not reference the user, got %v", cmds)
 	}
+
+	if !slices.Contains(cmds, `sudo apt-get update && sudo apt-get install -y tailscale`) {
+		t.Errorf("baseCommands() missing tailscale install command, got %v", cmds)
+	}
 }
 
 func TestGetExtra(t *testing.T) {

@@ -68,7 +68,7 @@ func (f *createFlags) register(fs *pflag.FlagSet) {
 	fs.StringVarP(&f.mem, "mem", "m", "", "memory limit (default 16GiB for VMs)")
 	fs.StringVarP(&f.disk, "disk", "d", "", "disk size (default 100GiB for VMs)")
 	fs.StringVarP(&f.extras, "extras", "e", "", "comma-separated extras: "+strings.Join(provision.ListExtras(), ", "))
-	fs.BoolVar(&f.tailscale, "tailscale", false, "install and authenticate tailscale")
+	fs.BoolVar(&f.tailscale, "tailscale", false, "authenticate tailscale for the instance")
 }
 
 func (f *createFlags) applyVMDefaults(cmd *cobra.Command) {
