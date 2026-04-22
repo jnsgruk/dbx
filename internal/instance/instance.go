@@ -31,6 +31,7 @@ type Mount struct {
 }
 
 type CreateOpts struct {
+	Name         string // exact instance name; if empty, GenerateName is used
 	Image        string
 	VM           bool
 	CPU          string
@@ -211,7 +212,7 @@ func configureMounts(name string, opts CreateOpts, st state.State, cwd, waitUser
 		}
 	}
 
-	st[cwd] = name
+	st[cwd] = append(st[cwd], name)
 	if err := state.Save(st); err != nil {
 		slog.Warn("Saving state", "error", err)
 	}
@@ -282,13 +283,16 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 	if st == nil {
 		st = state.LoadPruned()
 	}
-	if existing, ok := st[cwd]; ok {
-		return existing, fmt.Errorf("directory already has instance %q (use 'dbx shell' to connect)", existing)
-	}
 
-	name, err := GenerateName(purpose, opts.Image)
-	if err != nil {
-		return "", err
+	var name string
+	if opts.Name != "" {
+		name = opts.Name
+	} else {
+		var err error
+		name, err = GenerateName(purpose, opts.Image)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Try the fast path: copy from a base instance
