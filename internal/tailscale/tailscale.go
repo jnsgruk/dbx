@@ -12,7 +12,10 @@ import (
 	tsclient "github.com/tailscale/tailscale-client-go/v2"
 )
 
-const opItem = "Tailscale OAuth"
+const (
+	opItem  = "Tailscale OAuth"
+	opVault = "Devbox"
+)
 
 // AuthKey fetches Tailscale OAuth credentials from 1Password and generates
 // a non-ephemeral, single-use auth key tagged with "devbox".
@@ -176,7 +179,7 @@ type opField struct {
 }
 
 func fetchOAuthCredentials() (clientID, clientSecret string, err error) {
-	cmd := exec.Command("op", "item", "get", opItem,
+	cmd := exec.Command("op", fmt.Sprintf("--vault=%s", opVault), "item", "get", opItem,
 		"--fields", "label=client_id,label=client_secret",
 		"--format", "json",
 	)
