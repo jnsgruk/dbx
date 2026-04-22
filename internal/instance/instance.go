@@ -121,6 +121,35 @@ func WaitForSnapd(project, name string, timeout time.Duration) error {
 	return nil
 }
 
+func shellReadyArgs(user string) []string {
+	if config.Shell != "fish" {
+		return nil
+	}
+	return []string{
+		"sudo", "-u", user, "-i", "bash", "-lc",
+		"command -v mise >/dev/null && mise --version >/dev/null",
+	}
+}
+
+// waitForShellReady blocks until shell startup dependencies are available.
+// Fish startup runs `mise activate fish`, which can race snap mounts on boot.
+func waitForShellReady(project, name, user string, timeout time.Duration) error {
+	args := shellReadyArgs(user)
+	if len(args) == 0 {
+		return nil
+	}
+
+	slog.Info("Waiting for shell readiness", "name", name)
+	ok := pollUntil(timeout, func() bool {
+		_, err := lxc.Exec(project, name, args...)
+		return err == nil
+	})
+	if !ok {
+		return fmt.Errorf("timed out waiting for shell readiness in instance %q", name)
+	}
+	return nil
+}
+
 // CreateUser creates a new user and group inside the instance with the given
 // name and uid/gid, plus passwordless sudo access. The default cloud-init
 // user (ubuntu, uid 1000) is reassigned to a high uid first if it would
@@ -358,6 +387,10 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 		}
 	}
 
+	if err := waitForShellReady("", name, config.User, 60*time.Second); err != nil {
+		return "", fmt.Errorf("waiting for shell readiness: %w", err)
+	}
+
 	slog.Info("Instance ready", "name", name)
 	return name, nil
 }
@@ -421,6 +454,10 @@ func createFull(name string, opts CreateOpts, st state.State, cwd string) (strin
 		}
 	}
 
+	if err := waitForShellReady("", name, config.User, 60*time.Second); err != nil {
+		return "", fmt.Errorf("waiting for shell readiness: %w", err)
+	}
+
 	slog.Info("Instance ready", "name", name)
 	return name, nil
 }
@@ -434,6 +471,9 @@ func EnsureRunning(name string) error {
 		}
 		if err := WaitForUser("", name, config.User, 120*time.Second); err != nil {
 			return err
+		}
+		if err := waitForShellReady("", name, config.User, 60*time.Second); err != nil {
+			return fmt.Errorf("waiting for shell readiness: %w", err)
 		}
 	}
 	return nil

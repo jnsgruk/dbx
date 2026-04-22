@@ -103,6 +103,27 @@ func TestPollUntil(t *testing.T) {
 	})
 }
 
+func TestShellReadyArgs(t *testing.T) {
+	args := shellReadyArgs("jon")
+	if len(args) == 0 {
+		t.Fatal("shellReadyArgs() returned no args for fish shell")
+	}
+
+	want := []string{
+		"sudo", "-u", "jon", "-i", "bash", "-lc",
+		"command -v mise >/dev/null && mise --version >/dev/null",
+	}
+
+	if len(args) != len(want) {
+		t.Fatalf("shellReadyArgs() = %v, want %v", args, want)
+	}
+	for i := range want {
+		if args[i] != want[i] {
+			t.Fatalf("shellReadyArgs() = %v, want %v", args, want)
+		}
+	}
+}
+
 func TestDefaultMountsNoSharedOpenCodeData(t *testing.T) {
 	mounts := DefaultMounts()
 	for _, m := range mounts {
