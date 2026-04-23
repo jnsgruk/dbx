@@ -105,7 +105,8 @@ func newRootCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cwd, _ := os.Getwd()
 			cwd, _ = filepath.EvalSymlinks(cwd)
-			st := state.LoadPruned()
+			st, live := state.LoadPruned()
+			tailscale.PruneDevices(live)
 
 			if !flags.forceNew && len(st[cwd]) > 0 {
 				target, err := findInstance(st[cwd], flags.name)

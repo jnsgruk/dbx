@@ -10,6 +10,7 @@ import (
 
 	"github.com/jnsgruk/dbx/internal/lxc"
 	"github.com/jnsgruk/dbx/internal/state"
+	"github.com/jnsgruk/dbx/internal/tailscale"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +21,8 @@ func newLsCmd() *cobra.Command {
 		Short:   "List tracked instances",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			st := state.LoadPruned()
+			st, live := state.LoadPruned()
+			tailscale.PruneDevices(live)
 
 			if len(st) == 0 {
 				fmt.Println("No tracked instances.")

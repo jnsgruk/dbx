@@ -246,7 +246,7 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 	cwd, _ := os.Getwd()
 	cwd, _ = filepath.EvalSymlinks(cwd)
 	if st == nil {
-		st = state.LoadPruned()
+		st, _ = state.LoadPruned()
 	}
 
 	var name string

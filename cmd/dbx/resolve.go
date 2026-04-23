@@ -8,13 +8,15 @@ import (
 
 	"github.com/jnsgruk/dbx/internal/config"
 	"github.com/jnsgruk/dbx/internal/state"
+	"github.com/jnsgruk/dbx/internal/tailscale"
 )
 
 func resolveInstance(args []string) (name, cwd string, err error) {
 	if len(args) == 1 {
 		return args[0], "", nil
 	}
-	st := state.LoadPruned()
+	st, live := state.LoadPruned()
+	tailscale.PruneDevices(live)
 	cwd, _ = os.Getwd()
 	cwd, _ = filepath.EvalSymlinks(cwd)
 	names := st[cwd]

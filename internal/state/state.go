@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	"github.com/jnsgruk/dbx/internal/lxc"
-	"github.com/jnsgruk/dbx/internal/tailscale"
 )
 
 // State maps absolute directory paths to LXD instance names.
@@ -44,13 +43,15 @@ func Save(s State) error {
 	return os.WriteFile(p, data, 0o644)
 }
 
-// Prune removes entries whose instances no longer exist in LXD.
-// Uses a single `lxc list` call rather than per-instance checks.
-func Prune(s State) {
+// Prune removes entries whose instances no longer exist in LXD, using a
+// single `lxc list` call rather than per-instance checks. It returns the
+// set of live (tracked and still-existing) instance names so callers can
+// reconcile their own resources.
+func Prune(s State) map[string]struct{} {
 	instances, err := lxc.ListInstances()
 	if err != nil {
 		slog.Warn("Listing instances for pruning", "error", err)
-		return
+		return nil
 	}
 	liveInstances := make(map[string]struct{})
 	for _, names := range s {
@@ -60,7 +61,6 @@ func Prune(s State) {
 			}
 		}
 	}
-	tailscale.PruneDevices(liveInstances)
 
 	for dir, names := range s {
 		alive := slices.DeleteFunc(slices.Clone(names), func(name string) bool {
@@ -76,16 +76,19 @@ func Prune(s State) {
 			s[dir] = alive
 		}
 	}
+	return liveInstances
 }
 
-// LoadPruned loads state, prunes stale entries, saves, and returns the result.
-func LoadPruned() State {
+// LoadPruned loads state, prunes stale entries, saves, and returns the result
+// along with the set of live instance names the caller can use to reconcile
+// external resources.
+func LoadPruned() (State, map[string]struct{}) {
 	s := Load()
-	Prune(s)
+	live := Prune(s)
 	if err := Save(s); err != nil {
 		slog.Warn("Saving state", "error", err)
 	}
-	return s
+	return s, live
 }
 
 // RemoveByName deletes all entries matching the given instance name.
