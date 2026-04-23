@@ -96,9 +96,10 @@ func newRootCmd() *cobra.Command {
 	)
 
 	root := &cobra.Command{
-		Use:     "dbx",
-		Short:   "Create and manage LXD development containers and VMs",
-		Version: buildVersion(version, commit, date),
+		Use:          "dbx",
+		Short:        "Create and manage LXD development containers and VMs",
+		Version:      buildVersion(version, commit, date),
+		SilenceUsage: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			setupLogger(logLevel)
 		},
