@@ -19,6 +19,8 @@ prek run -av                     # Run all hooks
 Before finishing any task:
 1. Run `prek run -av`
 2. Ensure zero warnings from vet and clean formatting
+3. Commit using [Conventional Commits](https://www.conventionalcommits.org/)
+   (e.g. `feat(cli): ...`, `fix(lxc): ...`, `docs: ...`, `refactor(tools): ...`)
 
 ## Structure
 
