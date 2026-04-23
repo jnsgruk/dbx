@@ -23,17 +23,29 @@ Before finishing any task:
 ## Structure
 
 ```
-cmd/dbx/main.go                  # CLI entry point: cobra commands, flags, logger
+cmd/dbx/
+  main.go                        # entry point: main(), setupLogger, buildVersion
+  root.go                        # root command, createFlags, findInstance
+  resolve.go                     # resolveInstance, projectDir
+  create.go                      # 'create' subcommand
+  shell.go                       # 'shell', 'stop', 'rm' subcommands
+  list.go                        # 'ls' subcommand + timeAgo
+  base.go                        # 'base' subcommand group
+  tools.go                       # 'tools' subcommand group
 internal/
   config/config.go               # Compile-time constants (user, shell, GitHub user, etc.)
-  lxc/lxc.go                     # Thin wrapper around `lxc` CLI (os/exec)
+  lxc/                           # Thin wrapper around `lxc` CLI (os/exec)
+    lxc.go                       # Core command execution
+    info.go                      # ListInstances/ListInstanceInfo/GetInstanceInfo
+    project.go                   # LXD project management for base instances
   instance/
-    instance.go                  # Creation orchestration, mounts, user creation, terminfo
+    instance.go                  # Creation orchestration (Create, createFull, finalizeInstance)
     base.go                      # Base instance build/copy logic
-  provision/
-    provision.go                 # Provisioning commands and extras script execution
-    scripts/
-      extras/{claude,k8s,nix}.sh
+    wait.go                      # WaitForUser/Network/Snapd/shell-ready + timeout constants
+  tools/                         # Registered Tool implementations and Install pipeline
+    tools.go, base.go, run.go    # Tool interface, registry, Install driver
+    {claude,opencode,k8s,nix,tailscale,vm}.go
+  tailscale/tailscale.go         # 1Password-backed auth key + Tailscale API client
   state/state.go                 # JSON state file (~/.local/share/dbx/state.json)
 ```
 
@@ -45,7 +57,9 @@ internal/
 
 ## Conventions
 
-- Only external dependency is `github.com/spf13/cobra`
+- External dependencies: `spf13/cobra` + `spf13/pflag` (CLI),
+  `tailscale/tailscale-client-go` (Tailscale API). The `op` 1Password CLI is
+  invoked as a subprocess (not a Go dep) for OAuth secret retrieval.
 - All logging via stdlib `log/slog`; debug level logs every lxc command executed
 - Log messages: capitalised gerund phrases (`"Creating instance"`, `"Adding mount"`). Warn messages use the same form with an `"error"` key -- not `"Failed to X"`.
 - Error messages: lowercase `"doing thing: %w"` (`"setting disk size: %w"`, `"running provisioning: %w"`). Never start with a capital letter or end with punctuation.
