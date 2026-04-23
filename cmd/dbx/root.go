@@ -155,6 +155,7 @@ func newRootCmd() *cobra.Command {
 
 	root.AddCommand(newCreateCmd())
 	root.AddCommand(newShellCmd())
+	root.AddCommand(newExecCmd())
 	root.AddCommand(newLsCmd())
 	root.AddCommand(newStopCmd())
 	root.AddCommand(newRmCmd())

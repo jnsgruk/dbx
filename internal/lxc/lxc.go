@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"al.essio.dev/pkg/shellescape"
 	"github.com/jnsgruk/dbx/internal/config"
 )
 
@@ -142,6 +143,22 @@ func Shell(name, user, dir string) error {
 	if dir != "" {
 		args = append(args, "-C", "cd "+dir+" 2>/dev/null")
 	}
+	cmd := exec.Command("lxc", args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// ExecInteractive runs argv inside the instance as user, in dir, wiring
+// stdio from the current process. The command runs via a login shell so
+// that mise/PATH shims from ~/.profile are loaded.
+func ExecInteractive(name, user, dir string, argv []string) error {
+	script := shellescape.QuoteCommand(argv)
+	if dir != "" {
+		script = "cd " + shellescape.Quote(dir) + " 2>/dev/null; " + script
+	}
+	args := []string{"exec", name, "--", "sudo", "-u", user, "-i", config.Shell, "-c", script}
 	cmd := exec.Command("lxc", args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -48,6 +50,10 @@ func buildVersion(version, commit, date string) string {
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.ExitCode())
+		}
 		os.Exit(1)
 	}
 }
