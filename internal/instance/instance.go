@@ -368,6 +368,13 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 		installList = append(installList, t)
 	}
 
+	return finalizeInstance(ctx, name, opts, installList)
+}
+
+// finalizeInstance runs the post-start pipeline shared by the base-copy and
+// full-provisioning paths: wait for network/snapd (if needed), install tools,
+// authenticate tailscale (if requested), and wait for shell readiness.
+func finalizeInstance(ctx tools.Context, name string, opts CreateOpts, installList []tools.Tool) (string, error) {
 	if len(installList) > 0 || opts.TailscaleKey != "" {
 		slog.Info("Waiting for network", "name", name)
 		if err := WaitForNetwork("", name, 60*time.Second); err != nil {
@@ -450,33 +457,7 @@ func createFull(name string, opts CreateOpts, st state.State, cwd string) (strin
 		return "", err
 	}
 
-	slog.Info("Waiting for network", "name", name)
-	if err := WaitForNetwork("", name, 60*time.Second); err != nil {
-		return "", fmt.Errorf("waiting for network: %w", err)
-	}
-
-	slog.Info("Waiting for snapd", "name", name)
-	if err := WaitForSnapd("", name, 60*time.Second); err != nil {
-		return "", fmt.Errorf("waiting for snapd: %w", err)
-	}
-
-	slog.Info("Running tool provisioning", "name", name)
-	if err := tools.Install(ctx, selected); err != nil {
-		return "", err
-	}
-
-	if opts.TailscaleKey != "" {
-		if err := runTailscaleAuth(ctx, name, opts.TailscaleKey); err != nil {
-			return "", err
-		}
-	}
-
-	if err := waitForShellReady("", name, config.User, 60*time.Second); err != nil {
-		return "", fmt.Errorf("waiting for shell readiness: %w", err)
-	}
-
-	slog.Info("Instance ready", "name", name)
-	return name, nil
+	return finalizeInstance(ctx, name, opts, selected)
 }
 
 func EnsureRunning(name string) error {
