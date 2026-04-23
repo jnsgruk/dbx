@@ -135,7 +135,7 @@ func newRootCmd() *cobra.Command {
 				slog.Info("Fetching Tailscale auth key")
 				key, err := tailscale.AuthKey()
 				if err != nil {
-					return fmt.Errorf("setting up tailscale: %w", err)
+					return fmt.Errorf("fetching tailscale auth key: %w", err)
 				}
 				opts.TailscaleKey = key
 			}

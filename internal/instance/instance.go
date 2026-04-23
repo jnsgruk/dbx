@@ -365,7 +365,7 @@ func runTailscaleAuth(ctx tools.Context, name, key string) error {
 	slog.Info("Setting up Tailscale", "name", name)
 	deviceID, err := auth.Authenticate(ctx, key)
 	if err != nil {
-		return fmt.Errorf("setting up tailscale: %w", err)
+		return err
 	}
 	if err := tailscale.SaveDevice(name, deviceID); err != nil {
 		slog.Warn("Saving Tailscale device state", "error", err)
@@ -403,7 +403,7 @@ func createFull(name string, opts CreateOpts, st state.State, cwd string) (strin
 	}
 
 	if err := CreateUser("", name, config.User, hostUID()); err != nil {
-		return "", fmt.Errorf("creating user: %w", err)
+		return "", err
 	}
 
 	if err := postStartSetup("", name); err != nil {

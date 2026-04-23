@@ -87,7 +87,7 @@ func BuildBase(baseName string, opts CreateOpts) error {
 	}
 
 	if err := CreateUser(baseProject, baseName, config.User, hostUID()); err != nil {
-		return fmt.Errorf("creating user: %w", err)
+		return err
 	}
 
 	if err := postStartSetup(baseProject, baseName); err != nil {
