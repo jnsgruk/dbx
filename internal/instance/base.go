@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/jnsgruk/dbx/internal/config"
 	"github.com/jnsgruk/dbx/internal/lxc"
@@ -83,7 +82,7 @@ func BuildBase(baseName string, opts CreateOpts) error {
 	}
 
 	slog.Info("Waiting for cloud-init user", "name", baseName)
-	if err := WaitForUser(baseProject, baseName, "ubuntu", 120*time.Second); err != nil {
+	if err := WaitForUser(baseProject, baseName, "ubuntu", UserWaitTimeout); err != nil {
 		return err
 	}
 
@@ -96,7 +95,7 @@ func BuildBase(baseName string, opts CreateOpts) error {
 	}
 
 	slog.Info("Waiting for network", "name", baseName)
-	if err := WaitForNetwork(baseProject, baseName, 60*time.Second); err != nil {
+	if err := WaitForNetwork(baseProject, baseName, NetworkWaitTimeout); err != nil {
 		return fmt.Errorf("waiting for network: %w", err)
 	}
 

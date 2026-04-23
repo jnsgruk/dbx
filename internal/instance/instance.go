@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/jnsgruk/dbx/internal/config"
 	"github.com/jnsgruk/dbx/internal/lxc"
@@ -175,7 +174,7 @@ func startAndWaitForUser(name, waitUser string) error {
 	}
 
 	slog.Info("Waiting for user", "name", name, "user", waitUser)
-	return WaitForUser("", name, waitUser, 120*time.Second)
+	return WaitForUser("", name, waitUser, UserWaitTimeout)
 }
 
 // finalizeFileMounts fixes parent-dir ownership for file mounts and, for VMs,
@@ -324,12 +323,12 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 func finalizeInstance(ctx tools.Context, name string, opts CreateOpts, installList []tools.Tool) (string, error) {
 	if len(installList) > 0 || opts.TailscaleKey != "" {
 		slog.Info("Waiting for network", "name", name)
-		if err := WaitForNetwork("", name, 60*time.Second); err != nil {
+		if err := WaitForNetwork("", name, NetworkWaitTimeout); err != nil {
 			return "", fmt.Errorf("waiting for network: %w", err)
 		}
 
 		slog.Info("Waiting for snapd", "name", name)
-		if err := WaitForSnapd("", name, 60*time.Second); err != nil {
+		if err := WaitForSnapd("", name, SnapdWaitTimeout); err != nil {
 			return "", fmt.Errorf("waiting for snapd: %w", err)
 		}
 	}
@@ -344,7 +343,7 @@ func finalizeInstance(ctx tools.Context, name string, opts CreateOpts, installLi
 		}
 	}
 
-	if err := waitForShellReady("", name, config.User, 60*time.Second); err != nil {
+	if err := waitForShellReady("", name, config.User, ShellWaitTimeout); err != nil {
 		return "", fmt.Errorf("waiting for shell readiness: %w", err)
 	}
 
@@ -421,10 +420,10 @@ func EnsureRunning(name string) error {
 		if err := lxc.Start("", name); err != nil {
 			return fmt.Errorf("starting instance: %w", err)
 		}
-		if err := WaitForUser("", name, config.User, 120*time.Second); err != nil {
+		if err := WaitForUser("", name, config.User, UserWaitTimeout); err != nil {
 			return err
 		}
-		if err := waitForShellReady("", name, config.User, 60*time.Second); err != nil {
+		if err := waitForShellReady("", name, config.User, ShellWaitTimeout); err != nil {
 			return fmt.Errorf("waiting for shell readiness: %w", err)
 		}
 	}

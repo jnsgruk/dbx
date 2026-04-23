@@ -9,8 +9,17 @@ import (
 	"github.com/jnsgruk/dbx/internal/lxc"
 )
 
-// pollInterval is the delay between polling attempts in the wait helpers.
-const pollInterval = 200 * time.Millisecond
+// Polling parameters and default timeouts for the wait helpers. These are
+// referenced by callers in instance creation and ensure-running flows so
+// timeouts are controlled centrally.
+const (
+	pollInterval = 200 * time.Millisecond
+
+	UserWaitTimeout    = 120 * time.Second
+	NetworkWaitTimeout = 60 * time.Second
+	SnapdWaitTimeout   = 60 * time.Second
+	ShellWaitTimeout   = 60 * time.Second
+)
 
 // pollUntil polls check() until it returns true or timeout elapses.
 func pollUntil(timeout time.Duration, check func() bool) bool {
