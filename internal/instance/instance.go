@@ -213,10 +213,9 @@ func postStartSetup(project, name string) error {
 	return nil
 }
 
-// configureMounts adds mounts, saves state, starts the instance, and copies
-// file mounts for VMs. waitUser is the username to poll for after start
-// (config.User for base copies, "ubuntu" for fresh images before user creation).
-func configureMounts(name string, opts CreateOpts, mounts []tools.Mount, st state.State, cwd, waitUser string) error {
+// attachMounts attaches disk mounts to the instance. For VMs, file mounts
+// are deferred: they are copied in after start via pushFileMounts.
+func attachMounts(name string, opts CreateOpts, mounts []tools.Mount) error {
 	if !opts.VM {
 		if err := lxc.SetIDMap(name, hostUID()); err != nil {
 			return fmt.Errorf("setting idmap: %w", err)
@@ -237,25 +236,28 @@ func configureMounts(name string, opts CreateOpts, mounts []tools.Mount, st stat
 			return fmt.Errorf("adding mount %s: %w", m.Name, err)
 		}
 	}
+	return nil
+}
 
-	st[cwd] = append(st[cwd], name)
-	if err := state.Save(st); err != nil {
-		slog.Warn("Saving state", "error", err)
-	}
-
+// startAndWaitForUser starts the instance and blocks until the given user is
+// resolvable inside it.
+func startAndWaitForUser(name, waitUser string) error {
 	slog.Info("Starting instance", "name", name)
 	if err := lxc.Start("", name); err != nil {
 		return fmt.Errorf("starting instance: %w", err)
 	}
 
 	slog.Info("Waiting for user", "name", name, "user", waitUser)
-	if err := WaitForUser("", name, waitUser, 120*time.Second); err != nil {
-		return err
-	}
+	return WaitForUser("", name, waitUser, 120*time.Second)
+}
+
+// finalizeFileMounts fixes parent-dir ownership for file mounts and, for VMs,
+// pushes the files into the instance (since they cannot be attached as disks).
+func finalizeFileMounts(name string, opts CreateOpts, mounts []tools.Mount) error {
+	chownArg := fmt.Sprintf("%d:%d", hostUID(), hostUID())
 
 	// Fix ownership of parent directories created by LXD for file mounts.
 	// LXD creates these as root, which prevents the user from writing siblings.
-	chownArg := fmt.Sprintf("%d:%d", hostUID(), hostUID())
 	seen := map[string]bool{}
 	for _, m := range mounts {
 		if !m.File {
@@ -274,30 +276,41 @@ func configureMounts(name string, opts CreateOpts, mounts []tools.Mount, st stat
 		}
 	}
 
-	if opts.VM {
-		for _, m := range mounts {
-			if !m.File {
-				continue
-			}
-			if _, err := os.Stat(m.Source); os.IsNotExist(err) {
-				continue
-			}
-			slog.Info("Copying file into VM", "source", m.Source, "dest", m.Dest)
-			if err := lxc.FilePush(name, m.Source, m.Dest); err != nil {
-				return fmt.Errorf("copying file %s: %w", m.Name, err)
-			}
-			if _, err := lxc.Exec("", name, "chown", chownArg, m.Dest); err != nil {
-				return fmt.Errorf("setting ownership on %s: %w", m.Name, err)
-			}
-			if m.Mode != "" {
-				if _, err := lxc.Exec("", name, "chmod", m.Mode, m.Dest); err != nil {
-					return fmt.Errorf("setting permissions on %s: %w", m.Name, err)
-				}
+	if !opts.VM {
+		return nil
+	}
+
+	for _, m := range mounts {
+		if !m.File {
+			continue
+		}
+		if _, err := os.Stat(m.Source); os.IsNotExist(err) {
+			continue
+		}
+		slog.Info("Copying file into VM", "source", m.Source, "dest", m.Dest)
+		if err := lxc.FilePush(name, m.Source, m.Dest); err != nil {
+			return fmt.Errorf("copying file %s: %w", m.Name, err)
+		}
+		if _, err := lxc.Exec("", name, "chown", chownArg, m.Dest); err != nil {
+			return fmt.Errorf("setting ownership on %s: %w", m.Name, err)
+		}
+		if m.Mode != "" {
+			if _, err := lxc.Exec("", name, "chmod", m.Mode, m.Dest); err != nil {
+				return fmt.Errorf("setting permissions on %s: %w", m.Name, err)
 			}
 		}
 	}
 
 	return nil
+}
+
+// recordInstance appends the instance to the state entry for cwd and persists.
+// Save failures are logged but not fatal.
+func recordInstance(st state.State, cwd, name string) {
+	st[cwd] = append(st[cwd], name)
+	if err := state.Save(st); err != nil {
+		slog.Warn("Saving state", "error", err)
+	}
 }
 
 // Create creates a new instance. If st is non-nil, it is used as the
@@ -353,7 +366,14 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 	selected := tools.Select(ctx, opts.Tools)
 	mounts := collectMounts(ctx, selected)
 
-	if err := configureMounts(name, opts, mounts, st, cwd, config.User); err != nil {
+	if err := attachMounts(name, opts, mounts); err != nil {
+		return "", err
+	}
+	recordInstance(st, cwd, name)
+	if err := startAndWaitForUser(name, config.User); err != nil {
+		return "", err
+	}
+	if err := finalizeFileMounts(name, opts, mounts); err != nil {
 		return "", err
 	}
 
@@ -445,7 +465,14 @@ func createFull(name string, opts CreateOpts, st state.State, cwd string) (strin
 	selected := tools.Select(ctx, opts.Tools)
 	mounts := collectMounts(ctx, selected)
 
-	if err := configureMounts(name, opts, mounts, st, cwd, "ubuntu"); err != nil {
+	if err := attachMounts(name, opts, mounts); err != nil {
+		return "", err
+	}
+	recordInstance(st, cwd, name)
+	if err := startAndWaitForUser(name, "ubuntu"); err != nil {
+		return "", err
+	}
+	if err := finalizeFileMounts(name, opts, mounts); err != nil {
 		return "", err
 	}
 
