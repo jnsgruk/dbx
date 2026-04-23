@@ -1,1 +1,0 @@
-mise use -g claude-code@latest

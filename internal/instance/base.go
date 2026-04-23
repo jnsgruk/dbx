@@ -9,7 +9,7 @@ import (
 
 	"github.com/jnsgruk/dbx/internal/config"
 	"github.com/jnsgruk/dbx/internal/lxc"
-	"github.com/jnsgruk/dbx/internal/provision"
+	"github.com/jnsgruk/dbx/internal/tools"
 )
 
 const baseProject = "dbx"
@@ -44,13 +44,37 @@ func BuildBase(baseName string, opts CreateOpts) error {
 		return fmt.Errorf("initializing base instance: %w", err)
 	}
 
-	// Mount the scripts directory so provisioning scripts are available
+	// Base build context: no cwd-specific mounts, user not yet created. Only
+	// Build-marked mounts from Always tools are attached.
 	home, _ := os.UserHomeDir()
-	scriptsSource := filepath.Join(home, "scripts")
-	if _, err := os.Stat(scriptsSource); err == nil {
-		slog.Debug("Mounting scripts for base build", "source", scriptsSource)
-		if err := lxc.DeviceAdd(baseProject, baseName, "scripts", scriptsSource, "/home/"+config.User+"/scripts"); err != nil {
-			return fmt.Errorf("mounting scripts for base build: %w", err)
+	ctx := tools.Context{
+		HostHome:     home,
+		InstanceHome: "/home/" + config.User,
+		User:         config.User,
+		GitHubUser:   config.GitHubUser,
+		VM:           opts.VM,
+		Project:      baseProject,
+		Instance:     baseName,
+	}
+	selected := tools.SelectAlways(ctx)
+
+	var buildMounts []tools.Mount
+	for _, t := range selected {
+		for _, m := range t.Mounts(ctx) {
+			if m.Build {
+				buildMounts = append(buildMounts, m)
+			}
+		}
+	}
+
+	for _, m := range buildMounts {
+		if _, err := os.Stat(m.Source); err != nil {
+			slog.Warn("Skipping build mount, source missing", "source", m.Source, "device", m.Name)
+			continue
+		}
+		slog.Debug("Mounting for base build", "source", m.Source, "device", m.Name)
+		if err := lxc.DeviceAdd(baseProject, baseName, m.Name, m.Source, filepath.Clean(m.Dest)); err != nil {
+			return fmt.Errorf("mounting %s for base build: %w", m.Name, err)
 		}
 	}
 
@@ -77,21 +101,15 @@ func BuildBase(baseName string, opts CreateOpts) error {
 	}
 
 	slog.Info("Running base provisioning", "name", baseName)
-	if err := provision.RunBase(baseProject, baseName, config.User); err != nil {
+	if err := tools.Install(ctx, selected); err != nil {
 		_ = lxc.Delete(baseProject, baseName)
 		return fmt.Errorf("running base provisioning: %w", err)
 	}
 
-	if opts.VM {
-		slog.Info("Running VM provisioning", "name", baseName)
-		if err := provision.RunVM(baseProject, baseName, config.User); err != nil {
-			_ = lxc.Delete(baseProject, baseName)
-			return fmt.Errorf("running vm provisioning: %w", err)
-		}
+	// Remove build-only mounts so the base is clean for copying.
+	for _, m := range buildMounts {
+		_ = lxc.DeviceRemove(baseProject, baseName, m.Name)
 	}
-
-	// Remove the scripts mount so the base is clean for copying
-	_ = lxc.DeviceRemove(baseProject, baseName, "scripts")
 
 	slog.Info("Stopping base instance", "name", baseName)
 	if err := lxc.Stop(baseProject, baseName); err != nil {

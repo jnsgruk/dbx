@@ -14,9 +14,9 @@ import (
 	"github.com/jnsgruk/dbx/internal/config"
 	"github.com/jnsgruk/dbx/internal/instance"
 	"github.com/jnsgruk/dbx/internal/lxc"
-	"github.com/jnsgruk/dbx/internal/provision"
 	"github.com/jnsgruk/dbx/internal/state"
 	"github.com/jnsgruk/dbx/internal/tailscale"
+	"github.com/jnsgruk/dbx/internal/tools"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -55,7 +55,7 @@ type createFlags struct {
 	cpu       string
 	mem       string
 	disk      string
-	extras    string
+	tools     string
 	tailscale bool
 	name      string
 	forceNew  bool
@@ -67,7 +67,7 @@ func (f *createFlags) register(fs *pflag.FlagSet) {
 	fs.StringVarP(&f.cpu, "cpu", "c", "", "CPU limit (default 16 for VMs)")
 	fs.StringVarP(&f.mem, "mem", "m", "", "memory limit (default 16GiB for VMs)")
 	fs.StringVarP(&f.disk, "disk", "d", "", "disk size (default 100GiB for VMs)")
-	fs.StringVarP(&f.extras, "extras", "e", "", "comma-separated extras: "+strings.Join(provision.ListExtras(), ", "))
+	fs.StringVarP(&f.tools, "tools", "t", "", "comma-separated tools: "+strings.Join(tools.Names(), ", "))
 	fs.BoolVar(&f.tailscale, "tailscale", false, "authenticate tailscale for the instance")
 }
 
@@ -87,23 +87,20 @@ func (f *createFlags) applyVMDefaults(cmd *cobra.Command) {
 }
 
 func (f *createFlags) opts() (instance.CreateOpts, error) {
-	var extras []string
-	if f.extras != "" {
-		extras = strings.Split(f.extras, ",")
-		available := provision.ListExtras()
-		for _, e := range extras {
-			if !slices.Contains(available, e) {
-				return instance.CreateOpts{}, fmt.Errorf("unknown extra %q (available: %s)", e, strings.Join(available, ", "))
-			}
+	var selected []string
+	if f.tools != "" {
+		selected = strings.Split(f.tools, ",")
+		if err := tools.Validate(selected); err != nil {
+			return instance.CreateOpts{}, err
 		}
 	}
 	return instance.CreateOpts{
-		Image:  f.image,
-		VM:     f.vm,
-		CPU:    f.cpu,
-		Mem:    f.mem,
-		Disk:   f.disk,
-		Extras: extras,
+		Image: f.image,
+		VM:    f.vm,
+		CPU:   f.cpu,
+		Mem:   f.mem,
+		Disk:  f.disk,
+		Tools: selected,
 	}, nil
 }
 

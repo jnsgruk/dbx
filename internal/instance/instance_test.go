@@ -1,9 +1,7 @@
 package instance
 
 import (
-	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 	"time"
 )
@@ -121,63 +119,5 @@ func TestShellReadyArgs(t *testing.T) {
 		if args[i] != want[i] {
 			t.Fatalf("shellReadyArgs() = %v, want %v", args, want)
 		}
-	}
-}
-
-func TestDefaultMountsNoSharedOpenCodeData(t *testing.T) {
-	mounts := DefaultMounts()
-	for _, m := range mounts {
-		if m.Name == "opencodedata" {
-			t.Error("DefaultMounts should not include opencodedata directory mount")
-		}
-		if !m.File && strings.HasSuffix(m.Dest, filepath.Join(".local", "share", "opencode")) {
-			t.Errorf("DefaultMounts includes a directory mount for opencode data dir: %s → %s", m.Source, m.Dest)
-		}
-	}
-}
-
-func TestDefaultMountsAuthFile(t *testing.T) {
-	mounts := DefaultMounts()
-
-	var found bool
-	for _, m := range mounts {
-		if m.Name == "opencodeauth" {
-			found = true
-			if !m.File {
-				t.Error("opencodeauth mount should have File=true")
-			}
-			if m.Mode != "600" {
-				t.Errorf("opencodeauth mount Mode = %q, want %q", m.Mode, "600")
-			}
-			if !strings.HasSuffix(m.Source, filepath.Join(".local", "share", "opencode", "auth.json")) {
-				t.Errorf("opencodeauth source = %q, expected to end with .local/share/opencode/auth.json", m.Source)
-			}
-			if !strings.HasSuffix(m.Dest, filepath.Join(".local", "share", "opencode", "auth.json")) {
-				t.Errorf("opencodeauth dest = %q, expected to end with .local/share/opencode/auth.json", m.Dest)
-			}
-		}
-	}
-	if !found {
-		t.Error("DefaultMounts should include an opencodeauth file mount")
-	}
-}
-
-func TestDefaultMountsOpenCodeCfgUnchanged(t *testing.T) {
-	mounts := DefaultMounts()
-
-	var found bool
-	for _, m := range mounts {
-		if m.Name == "opencodecfg" {
-			found = true
-			if m.File {
-				t.Error("opencodecfg should be a directory mount, not a file mount")
-			}
-			if !strings.HasSuffix(m.Source, filepath.Join(".config", "opencode")) {
-				t.Errorf("opencodecfg source = %q, expected to end with .config/opencode", m.Source)
-			}
-		}
-	}
-	if !found {
-		t.Error("DefaultMounts should include opencodecfg directory mount")
 	}
 }

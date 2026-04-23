@@ -14,21 +14,13 @@ import (
 
 	"github.com/jnsgruk/dbx/internal/config"
 	"github.com/jnsgruk/dbx/internal/lxc"
-	"github.com/jnsgruk/dbx/internal/provision"
 	"github.com/jnsgruk/dbx/internal/state"
 	"github.com/jnsgruk/dbx/internal/tailscale"
+	"github.com/jnsgruk/dbx/internal/tools"
 )
 
 // hostUID returns the uid of the user running dbx.
 func hostUID() int { return os.Getuid() }
-
-type Mount struct {
-	Name   string
-	Source string
-	Dest   string
-	File   bool   // true for single files (VMs can't mount these, they get copied instead)
-	Mode   string // file permission mode to preserve on VM push (e.g. "600"); empty means default
-}
 
 type CreateOpts struct {
 	Name         string // exact instance name; if empty, GenerateName is used
@@ -37,7 +29,7 @@ type CreateOpts struct {
 	CPU          string
 	Mem          string
 	Disk         string
-	Extras       []string
+	Tools        []string // user-requested opt-in tools
 	TailscaleKey string
 }
 
@@ -59,22 +51,28 @@ func imageBase(image string) string {
 	return image
 }
 
-func DefaultMounts() []Mount {
+// toolContext builds a tools.Context for the given options and instance.
+func toolContext(opts CreateOpts, project, instanceName, cwd string) tools.Context {
 	home, _ := os.UserHomeDir()
-	cwd, _ := os.Getwd()
-	cwd, _ = filepath.EvalSymlinks(cwd)
-
-	uhome := "/home/" + config.User
-	return []Mount{
-		{Name: "project", Source: cwd, Dest: filepath.Join(uhome, filepath.Base(cwd))},
-		{Name: "scripts", Source: filepath.Join(home, "scripts"), Dest: filepath.Join(uhome, "scripts")},
-		{Name: "claudedir", Source: filepath.Join(home, ".claude"), Dest: filepath.Join(uhome, ".claude")},
-		{Name: "claudejson", Source: filepath.Join(home, ".claude.json"), Dest: filepath.Join(uhome, ".claude.json"), File: true},
-		{Name: "ghdir", Source: filepath.Join(home, ".config", "gh"), Dest: filepath.Join(uhome, ".config", "gh")},
-		{Name: "opencodecfg", Source: filepath.Join(home, ".config", "opencode"), Dest: filepath.Join(uhome, ".config", "opencode")},
-		{Name: "opencodeauth", Source: filepath.Join(home, ".local", "share", "opencode", "auth.json"), Dest: filepath.Join(uhome, ".local", "share", "opencode", "auth.json"), File: true, Mode: "600"},
-		{Name: "atuindir", Source: filepath.Join(home, ".local", "share", "atuin"), Dest: filepath.Join(uhome, ".local", "share", "atuin")},
+	return tools.Context{
+		HostHome:     home,
+		InstanceHome: "/home/" + config.User,
+		Cwd:          cwd,
+		User:         config.User,
+		GitHubUser:   config.GitHubUser,
+		VM:           opts.VM,
+		Project:      project,
+		Instance:     instanceName,
 	}
+}
+
+// collectMounts returns all mounts for the given selected tools.
+func collectMounts(ctx tools.Context, selected []tools.Tool) []tools.Mount {
+	var out []tools.Mount
+	for _, t := range selected {
+		out = append(out, t.Mounts(ctx)...)
+	}
+	return out
 }
 
 func pollUntil(timeout time.Duration, check func() bool) bool {
@@ -218,14 +216,13 @@ func postStartSetup(project, name string) error {
 // configureMounts adds mounts, saves state, starts the instance, and copies
 // file mounts for VMs. waitUser is the username to poll for after start
 // (config.User for base copies, "ubuntu" for fresh images before user creation).
-func configureMounts(name string, opts CreateOpts, st state.State, cwd, waitUser string) error {
+func configureMounts(name string, opts CreateOpts, mounts []tools.Mount, st state.State, cwd, waitUser string) error {
 	if !opts.VM {
 		if err := lxc.SetIDMap(name, hostUID()); err != nil {
 			return fmt.Errorf("setting idmap: %w", err)
 		}
 	}
 
-	mounts := DefaultMounts()
 	for _, m := range mounts {
 		if _, err := os.Stat(m.Source); os.IsNotExist(err) {
 			slog.Warn("Skipping mount, source does not exist", "source", m.Source, "device", m.Name)
@@ -289,7 +286,6 @@ func configureMounts(name string, opts CreateOpts, st state.State, cwd, waitUser
 			if err := lxc.FilePush(name, m.Source, m.Dest); err != nil {
 				return fmt.Errorf("copying file %s: %w", m.Name, err)
 			}
-			chownArg := fmt.Sprintf("%d:%d", hostUID(), hostUID())
 			if _, err := lxc.Exec("", name, "chown", chownArg, m.Dest); err != nil {
 				return fmt.Errorf("setting ownership on %s: %w", m.Name, err)
 			}
@@ -353,11 +349,26 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 		}
 	}
 
-	if err := configureMounts(name, opts, st, cwd, config.User); err != nil {
+	ctx := toolContext(opts, "", name, cwd)
+	selected := tools.Select(ctx, opts.Tools)
+	mounts := collectMounts(ctx, selected)
+
+	if err := configureMounts(name, opts, mounts, st, cwd, config.User); err != nil {
 		return "", err
 	}
 
-	if len(opts.Extras) > 0 || opts.TailscaleKey != "" {
+	// Only the opt-in tools run here; Always tools are already baked into the
+	// base image. Authentication for Authenticator tools always runs when a
+	// credential is supplied.
+	var installList []tools.Tool
+	for _, t := range selected {
+		if a, ok := t.(tools.Always); ok && a.Always(ctx) {
+			continue
+		}
+		installList = append(installList, t)
+	}
+
+	if len(installList) > 0 || opts.TailscaleKey != "" {
 		slog.Info("Waiting for network", "name", name)
 		if err := WaitForNetwork("", name, 60*time.Second); err != nil {
 			return "", fmt.Errorf("waiting for network: %w", err)
@@ -369,21 +380,13 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 		}
 	}
 
-	if len(opts.Extras) > 0 {
-		slog.Info("Running extras provisioning", "name", name)
-		if err := provision.RunExtras(name, config.User, opts.Extras); err != nil {
-			return "", fmt.Errorf("running extras provisioning: %w", err)
-		}
+	if err := tools.Install(ctx, installList); err != nil {
+		return "", err
 	}
 
 	if opts.TailscaleKey != "" {
-		slog.Info("Setting up Tailscale", "name", name)
-		deviceID, err := provision.RunTailscale(name, config.User, opts.TailscaleKey)
-		if err != nil {
-			return "", fmt.Errorf("setting up tailscale: %w", err)
-		}
-		if err := tailscale.SaveDevice(name, deviceID); err != nil {
-			slog.Warn("Saving Tailscale device state", "error", err)
+		if err := runTailscaleAuth(ctx, name, opts.TailscaleKey); err != nil {
+			return "", err
 		}
 	}
 
@@ -393,6 +396,28 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 
 	slog.Info("Instance ready", "name", name)
 	return name, nil
+}
+
+// runTailscaleAuth invokes the tailscale tool's Authenticator and persists the
+// resulting device ID.
+func runTailscaleAuth(ctx tools.Context, name, key string) error {
+	t, ok := tools.Get("tailscale")
+	if !ok {
+		return fmt.Errorf("tailscale tool not registered")
+	}
+	auth, ok := t.(tools.Authenticator)
+	if !ok {
+		return fmt.Errorf("tailscale tool does not implement Authenticator")
+	}
+	slog.Info("Setting up Tailscale", "name", name)
+	deviceID, err := auth.Authenticate(ctx, key)
+	if err != nil {
+		return fmt.Errorf("setting up tailscale: %w", err)
+	}
+	if err := tailscale.SaveDevice(name, deviceID); err != nil {
+		slog.Warn("Saving Tailscale device state", "error", err)
+	}
+	return nil
 }
 
 // createFull is the fallback path when no base instance is available.
@@ -409,7 +434,11 @@ func createFull(name string, opts CreateOpts, st state.State, cwd string) (strin
 		}
 	}
 
-	if err := configureMounts(name, opts, st, cwd, "ubuntu"); err != nil {
+	ctx := toolContext(opts, "", name, cwd)
+	selected := tools.Select(ctx, opts.Tools)
+	mounts := collectMounts(ctx, selected)
+
+	if err := configureMounts(name, opts, mounts, st, cwd, "ubuntu"); err != nil {
 		return "", err
 	}
 
@@ -431,26 +460,14 @@ func createFull(name string, opts CreateOpts, st state.State, cwd string) (strin
 		return "", fmt.Errorf("waiting for snapd: %w", err)
 	}
 
-	slog.Info("Running provisioning", "name", name)
-	if err := provision.Run(name, config.User, opts.Extras); err != nil {
-		return "", fmt.Errorf("running provisioning: %w", err)
-	}
-
-	if opts.VM {
-		slog.Info("Running VM provisioning", "name", name)
-		if err := provision.RunVM("", name, config.User); err != nil {
-			return "", fmt.Errorf("running vm provisioning: %w", err)
-		}
+	slog.Info("Running tool provisioning", "name", name)
+	if err := tools.Install(ctx, selected); err != nil {
+		return "", err
 	}
 
 	if opts.TailscaleKey != "" {
-		slog.Info("Setting up Tailscale", "name", name)
-		deviceID, err := provision.RunTailscale(name, config.User, opts.TailscaleKey)
-		if err != nil {
-			return "", fmt.Errorf("setting up tailscale: %w", err)
-		}
-		if err := tailscale.SaveDevice(name, deviceID); err != nil {
-			slog.Warn("Saving Tailscale device state", "error", err)
+		if err := runTailscaleAuth(ctx, name, opts.TailscaleKey); err != nil {
+			return "", err
 		}
 	}
 
