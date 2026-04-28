@@ -92,7 +92,7 @@ Creation flags (apply to the root command and `dbx create`):
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--vm` | | `false` | Create a VM instead of a container |
-| `--image` | `-i` | `ubuntu:questing` | LXD image |
+| `--image` | `-i` | `ubuntu:resolute` | LXD image |
 | `--cpu` | `-c` | *(unset; `16` for VMs)* | CPU limit |
 | `--mem` | `-m` | *(unset; `16GiB` for VMs)* | Memory limit |
 | `--disk` | `-d` | *(unset; `100GiB` for VMs)* | Disk size |
@@ -179,7 +179,7 @@ Personalisation lives in compile-time constants in
 ```go
 User        = "jon"              // username created inside instances
 GitHubUser  = "jnsgruk"          // ssh-import-id source
-Image       = "ubuntu:questing"  // default image
+Image       = "ubuntu:resolute"  // default image
 Shell       = "fish"             // interactive shell
 LoginShell  = "/usr/bin/bash"    // /etc/passwd login shell
 RemapUID    = "1100"             // where the cloud-init `ubuntu` user is moved

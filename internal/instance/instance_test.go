@@ -12,7 +12,7 @@ func TestImageBase(t *testing.T) {
 		image string
 		want  string
 	}{
-		{name: "standard image", image: "ubuntu:questing", want: "questing"},
+		{name: "standard image", image: "ubuntu:resolute", want: "resolute"},
 		{name: "no colon", image: "myimage", want: "myimage"},
 		{name: "multiple colons", image: "registry:port:tag", want: "tag"},
 		{name: "trailing colon", image: "ubuntu:", want: ""},
@@ -36,8 +36,8 @@ func TestBaseName(t *testing.T) {
 		vm    bool
 		want  string
 	}{
-		{name: "container", image: "ubuntu:questing", vm: false, want: "base-questing-container"},
-		{name: "vm", image: "ubuntu:questing", vm: true, want: "base-questing-vm"},
+		{name: "container", image: "ubuntu:resolute", vm: false, want: "base-resolute-container"},
+		{name: "vm", image: "ubuntu:resolute", vm: true, want: "base-resolute-vm"},
 		{name: "different image", image: "ubuntu:noble", vm: false, want: "base-noble-container"},
 	}
 
@@ -52,9 +52,9 @@ func TestBaseName(t *testing.T) {
 }
 
 func TestGenerateName(t *testing.T) {
-	pattern := regexp.MustCompile(`^myproject-questing-[0-9a-f]{4}$`)
+	pattern := regexp.MustCompile(`^myproject-resolute-[0-9a-f]{4}$`)
 
-	name, err := GenerateName("myproject", "ubuntu:questing")
+	name, err := GenerateName("myproject", "ubuntu:resolute")
 	if err != nil {
 		t.Fatalf("GenerateName returned error: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestGenerateName(t *testing.T) {
 		t.Errorf("GenerateName() = %q, does not match pattern %s", name, pattern)
 	}
 
-	name2, err := GenerateName("myproject", "ubuntu:questing")
+	name2, err := GenerateName("myproject", "ubuntu:resolute")
 	if err != nil {
 		t.Fatalf("GenerateName returned error: %v", err)
 	}

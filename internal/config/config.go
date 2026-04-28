@@ -8,7 +8,7 @@ const (
 	GitHubUser = "jnsgruk"
 
 	// Image is the default LXD image for new instances.
-	Image = "ubuntu:questing"
+	Image = "ubuntu:resolute"
 
 	// Shell is the interactive shell launched by `dbx shell`.
 	Shell = "fish"
