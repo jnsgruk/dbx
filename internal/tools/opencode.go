@@ -24,6 +24,23 @@ func (opencode) Mounts(ctx Context) []Mount {
 	}
 }
 
-func (opencode) InstallScript(Context) string { return "mise use -g opencode@latest" }
+func (opencode) InstallScript(Context) string {
+	return `mise use -g opencode@latest
+
+mkdir -p "$HOME/.config/opencode"
+if [ ! -f "$HOME/.config/opencode/opencode.json" ]; then
+	cat > "$HOME/.config/opencode/opencode.json" <<'EOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "edit": "allow",
+    "bash": "allow",
+    "webfetch": "allow"
+  }
+}
+EOF
+fi
+`
+}
 
 func init() { Register(opencode{}) }
