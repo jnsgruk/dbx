@@ -27,11 +27,15 @@ func (opencode) Mounts(ctx Context) []Mount {
 func (opencode) InstallScript(Context) string {
 	return `mise use -g opencode@latest
 
-mkdir -p "$HOME/.config/opencode"
+mkdir -p "$HOME/.config/opencode/themes"
+curl -fsSL -o "$HOME/.config/opencode/themes/warm-burnout.json" \
+	https://raw.githubusercontent.com/felipefdl/warm-burnout/main/opencode/warm-burnout.json
+
 if [ ! -f "$HOME/.config/opencode/opencode.json" ]; then
 	cat > "$HOME/.config/opencode/opencode.json" <<'EOF'
 {
   "$schema": "https://opencode.ai/config.json",
+  "theme": "warm-burnout",
   "permission": {
     "edit": "allow",
     "bash": "allow",

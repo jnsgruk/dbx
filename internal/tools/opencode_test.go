@@ -86,6 +86,23 @@ func TestOpenCodeInstallWritesDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestOpenCodeInstallsWarmBurnoutTheme(t *testing.T) {
+	tool, ok := Get("opencode")
+	if !ok {
+		t.Fatal("opencode tool not registered")
+	}
+	script := tool.InstallScript(Context{})
+	for _, want := range []string{
+		`$HOME/.config/opencode/themes/warm-burnout.json`,
+		`raw.githubusercontent.com/felipefdl/warm-burnout`,
+		`"theme": "warm-burnout"`,
+	} {
+		if !strings.Contains(script, want) {
+			t.Errorf("install script missing %q", want)
+		}
+	}
+}
+
 func TestHiddenToolsExcludedFromNames(t *testing.T) {
 	for _, hidden := range []string{"base", "vm", "tailscale"} {
 		for _, name := range Names() {
