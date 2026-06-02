@@ -179,7 +179,8 @@ type opField struct {
 }
 
 func fetchOAuthCredentials() (clientID, clientSecret string, err error) {
-	cmd := exec.Command("op", fmt.Sprintf("--vault=%s", opVault), "item", "get", opItem,
+	cmd := exec.Command(
+		"op", fmt.Sprintf("--vault=%s", opVault), "item", "get", opItem,
 		"--fields", "label=client_id,label=client_secret",
 		"--format", "json",
 	)

@@ -94,7 +94,8 @@ func CreateUser(project, name, user string, uid int) error {
 	if _, err := lxc.Exec(project, name, "groupadd", "-g", uidStr, user); err != nil {
 		return fmt.Errorf("creating group: %w", err)
 	}
-	if _, err := lxc.Exec(project, name,
+	if _, err := lxc.Exec(
+		project, name,
 		"useradd", "-m", "-u", uidStr, "-g", uidStr, "-s", config.LoginShell, user,
 	); err != nil {
 		return fmt.Errorf("creating user: %w", err)
@@ -102,7 +103,8 @@ func CreateUser(project, name, user string, uid int) error {
 
 	// Grant passwordless sudo.
 	sudoLine := user + " ALL=(ALL) NOPASSWD:ALL"
-	if _, err := lxc.Exec(project, name,
+	if _, err := lxc.Exec(
+		project, name,
 		"bash", "-c", fmt.Sprintf("echo '%s' > /etc/sudoers.d/%s", sudoLine, user),
 	); err != nil {
 		return fmt.Errorf("configuring sudo: %w", err)

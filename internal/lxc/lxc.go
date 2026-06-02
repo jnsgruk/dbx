@@ -83,7 +83,8 @@ func ConfigSet(name, key, value string) error {
 }
 
 func DeviceAdd(project, name, device, source, path string) error {
-	args := projectArgs(project, "config", "device", "add", "-q", name, device, "disk",
+	args := projectArgs(
+		project, "config", "device", "add", "-q", name, device, "disk",
 		"source="+source, "path="+path,
 	)
 	_, err := Run(args...)

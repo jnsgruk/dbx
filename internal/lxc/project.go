@@ -10,7 +10,8 @@ func ProjectExists(name string) bool {
 // ProjectCreate creates a project that shares profiles, images, networks, and
 // storage from the default project so base instances get a root disk and network.
 func ProjectCreate(name string) error {
-	_, err := Run("project", "create", name,
+	_, err := Run(
+		"project", "create", name,
 		"-c", "features.profiles=false",
 		"-c", "features.images=false",
 		"-c", "features.networks=false",
