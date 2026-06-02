@@ -99,7 +99,14 @@ func DeviceRemove(project, name, device string) error {
 func DeviceOverride(name, device string, kv ...string) error {
 	args := append([]string{"config", "device", "override", "-q", name, device}, kv...)
 	_, err := Run(args...)
-	return err
+	if err == nil {
+		return nil
+	}
+	// If the device already exists at the instance level (e.g. after a
+	// cross-project copy), override fails. Fall back to device set.
+	setArgs := append([]string{"config", "device", "set", "-q", name, device}, kv...)
+	_, setErr := Run(setArgs...)
+	return setErr
 }
 
 func Start(project, name string) error {
