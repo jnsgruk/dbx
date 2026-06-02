@@ -16,7 +16,8 @@ type Mount struct {
 	Source string
 	Dest   string
 	File   bool   // true for single files (VMs copy these instead of mounting)
-	Mode   string // file permission mode for VM push, e.g. "600"
+	Copy   bool   // true for single files copied instead of mounted
+	Mode   string // file permission mode for copied files, e.g. "600"
 	Build  bool   // true if the mount is needed during base image build
 }
 

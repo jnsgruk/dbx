@@ -34,7 +34,7 @@ for building something similar.
     dotfiles repo (the `base` tool sources `probuntu/provision-headless`
     from it).
   - `~/.config/gh`, `~/.local/share/atuin` — shared shell history and GitHub CLI state.
-  - `~/.codex/auth.json`, `~/.codex/config.toml` — default Codex CLI auth/config mounts.
+  - `~/.codex/auth.json`, `~/.codex/config.toml` — default Codex CLI auth mount and config copy.
   - `~/.config/opencode`, `~/.local/share/opencode/auth.json` — default opencode mounts.
   - `~/.claude`, `~/.claude.json` — when using `--tools claude`.
 - [1Password CLI (`op`)](https://developer.1password.com/docs/cli/), signed in,
@@ -118,7 +118,7 @@ Run `dbx tools list` for the current set. At time of writing:
 | Tool | What it does |
 |------|--------------|
 | `claude` | Installs `claude-code` via mise; mounts `~/.claude` and `~/.claude.json` |
-| `codex` | Installs Codex CLI via mise; mounts `~/.codex/auth.json` and `~/.codex/config.toml` (file mounts, mode 600) |
+| `codex` | Installs Codex CLI via mise; mounts `~/.codex/auth.json` and copies `~/.codex/config.toml` into the instance (mode 600) |
 | `opencode` | Installs `opencode` via mise; mounts config dir and `auth.json` (file mount, mode 600) |
 | `k8s` | Installs Canonical k8s snap, bootstraps a single-node cluster with MetalLB, deploys a local registry, writes `~/.kube/config` |
 | `nix` | Installs Nix via the Determinate Systems installer |
@@ -143,8 +143,8 @@ Adding a tool is a small Go file in `internal/tools/`; see [CLAUDE.md](CLAUDE.md
    `dbx base ls` / `dbx base rm`.
 3. **Mounts.** The project directory is mounted at `~/<basename>`. Other
    mounts come from selected tools. Directories use bind mounts; single
-   files are bind-mounted on containers and `lxc file push`'d on VMs
-   (which can't bind-mount files).
+   files are bind-mounted on containers unless the tool needs a local copy,
+   and `lxc file push`'d on VMs (which can't bind-mount files).
 4. **Install pipeline.** Each selected tool's install script runs as the
    target user, wrapped with `#!/usr/bin/env bash` + `set -exo pipefail`.
 5. **Readiness gates.** Creation waits, with bounded timeouts, for the

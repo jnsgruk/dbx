@@ -141,8 +141,8 @@ func postStartSetup(project, name string) error {
 	return nil
 }
 
-// attachMounts attaches disk mounts to the instance. For VMs, file mounts
-// are deferred: they are copied in after start via pushFileMounts.
+// attachMounts attaches disk mounts to the instance. File mounts are deferred
+// for VMs and when the tool requests copy semantics.
 func attachMounts(name string, opts CreateOpts, mounts []tools.Mount) error {
 	if !opts.VM {
 		if err := lxc.SetIDMap(name, hostUID()); err != nil {
@@ -155,8 +155,8 @@ func attachMounts(name string, opts CreateOpts, mounts []tools.Mount) error {
 			slog.Warn("Skipping mount, source does not exist", "source", m.Source, "device", m.Name)
 			continue
 		}
-		if m.File && opts.VM {
-			slog.Debug("Deferring file mount for VM, will copy after start", "device", m.Name)
+		if m.File && (opts.VM || m.Copy) {
+			slog.Debug("Deferring file mount, will copy after start", "device", m.Name)
 			continue
 		}
 		// Remove any device inherited from the base instance copy so the
@@ -182,8 +182,8 @@ func startAndWaitForUser(name, waitUser string) error {
 	return WaitForUser("", name, waitUser, UserWaitTimeout)
 }
 
-// finalizeFileMounts fixes parent-dir ownership for file mounts and, for VMs,
-// pushes the files into the instance (since they cannot be attached as disks).
+// finalizeFileMounts fixes parent-dir ownership for file mounts and copies
+// files that cannot or should not be attached as disk devices.
 func finalizeFileMounts(name string, opts CreateOpts, mounts []tools.Mount) error {
 	chownArg := fmt.Sprintf("%d:%d", hostUID(), hostUID())
 
@@ -207,20 +207,20 @@ func finalizeFileMounts(name string, opts CreateOpts, mounts []tools.Mount) erro
 		}
 	}
 
-	if !opts.VM {
-		return nil
-	}
-
 	for _, m := range mounts {
-		if !m.File {
+		if !m.File || (!opts.VM && !m.Copy) {
 			continue
 		}
 		if _, err := os.Stat(m.Source); os.IsNotExist(err) {
 			continue
 		}
-		slog.Info("Copying file into VM", "source", m.Source, "dest", m.Dest)
+		slog.Info("Copying file into instance", "source", m.Source, "dest", m.Dest)
 		if err := lxc.FilePush(name, m.Source, m.Dest); err != nil {
 			return fmt.Errorf("copying file %s: %w", m.Name, err)
+		}
+		parent := filepath.Dir(m.Dest)
+		if _, err := lxc.Exec("", name, "chown", chownArg, parent); err != nil {
+			return fmt.Errorf("setting ownership on %s parent: %w", m.Name, err)
 		}
 		if _, err := lxc.Exec("", name, "chown", chownArg, m.Dest); err != nil {
 			return fmt.Errorf("setting ownership on %s: %w", m.Name, err)

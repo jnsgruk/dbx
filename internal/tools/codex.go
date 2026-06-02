@@ -23,6 +23,7 @@ func (codex) Mounts(ctx Context) []Mount {
 			Source: filepath.Join(ctx.HostHome, ".codex", "config.toml"),
 			Dest:   filepath.Join(ctx.InstanceHome, ".codex", "config.toml"),
 			File:   true,
+			Copy:   true,
 			Mode:   "600",
 		},
 	}

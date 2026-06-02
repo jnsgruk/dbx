@@ -38,28 +38,36 @@ func TestCodexInstallScript(t *testing.T) {
 
 func TestCodexMountsOnlyAuthAndConfig(t *testing.T) {
 	mounts := codexMounts(t)
-	want := map[string]bool{
-		filepath.Join("/home/u", ".codex", "auth.json"):   false,
-		filepath.Join("/home/u", ".codex", "config.toml"): false,
+	want := map[string]struct {
+		found bool
+		copy  bool
+	}{
+		filepath.Join("/home/u", ".codex", "auth.json"):   {copy: false},
+		filepath.Join("/home/u", ".codex", "config.toml"): {copy: true},
 	}
 	if len(mounts) != len(want) {
 		t.Fatalf("got %d mounts, want %d: %v", len(mounts), len(want), mounts)
 	}
 	for _, m := range mounts {
-		if _, ok := want[m.Dest]; !ok {
+		entry, ok := want[m.Dest]
+		if !ok {
 			t.Errorf("unexpected codex mount dest: %s", m.Dest)
 			continue
 		}
-		want[m.Dest] = true
+		entry.found = true
+		want[m.Dest] = entry
 		if !m.File {
 			t.Errorf("%s should have File=true", m.Name)
+		}
+		if m.Copy != entry.copy {
+			t.Errorf("%s Copy = %t, want %t", m.Name, m.Copy, entry.copy)
 		}
 		if m.Mode != "600" {
 			t.Errorf("%s Mode = %q, want %q", m.Name, m.Mode, "600")
 		}
 	}
-	for dest, found := range want {
-		if !found {
+	for dest, entry := range want {
+		if !entry.found {
 			t.Errorf("missing codex mount dest: %s", dest)
 		}
 	}
