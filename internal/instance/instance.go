@@ -28,7 +28,7 @@ type CreateOpts struct {
 	CPU          string
 	Mem          string
 	Disk         string
-	Tools        []string // user-requested opt-in tools
+	Tools        []string // selected user tools
 	TailscaleKey string
 }
 

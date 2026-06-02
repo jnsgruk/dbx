@@ -11,7 +11,7 @@ func TestNamesIncludesUserTools(t *testing.T) {
 	if len(names) == 0 {
 		t.Fatal("Names returned empty list")
 	}
-	for _, want := range []string{"claude", "k8s", "nix", "opencode"} {
+	for _, want := range []string{"claude", "codex", "k8s", "nix", "opencode"} {
 		if !slices.Contains(names, want) {
 			t.Errorf("Names() missing %q, got %v", want, names)
 		}

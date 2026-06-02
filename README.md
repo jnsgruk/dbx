@@ -34,8 +34,9 @@ for building something similar.
     dotfiles repo (the `base` tool sources `probuntu/provision-headless`
     from it).
   - `~/.config/gh`, `~/.local/share/atuin` — shared shell history and GitHub CLI state.
+  - `~/.codex/auth.json`, `~/.codex/config.toml` — default Codex CLI auth/config mounts.
+  - `~/.config/opencode`, `~/.local/share/opencode/auth.json` — default opencode mounts.
   - `~/.claude`, `~/.claude.json` — when using `--tools claude`.
-  - `~/.config/opencode`, `~/.local/share/opencode/auth.json` — when using `--tools opencode`.
 - [1Password CLI (`op`)](https://developer.1password.com/docs/cli/), signed in,
   if you use `--tailscale` (OAuth client secret and API token are fetched from 1Password).
 
@@ -96,7 +97,7 @@ Creation flags (apply to the root command and `dbx create`):
 | `--cpu` | `-c` | *(unset; `16` for VMs)* | CPU limit |
 | `--mem` | `-m` | *(unset; `16GiB` for VMs)* | Memory limit |
 | `--disk` | `-d` | *(unset; `100GiB` for VMs)* | Disk size |
-| `--tools` | `-t` | | Comma-separated opt-in tools |
+| `--tools` | `-t` | `codex,opencode` | Additional comma-separated tools |
 | `--tailscale` | | `false` | Enrol the instance in your tailnet |
 | `--name` | `-n` | *(generated)* | Exact instance hostname |
 | `--new` | | `false` | Create a new instance even if one exists for this directory |
@@ -106,16 +107,18 @@ Generated names look like `<dirname>-<image-release>-<4 hex>`.
 
 ## Tools
 
-Tools are the unit of opt-in provisioning. Each declares its mounts and an
-install script; `dbx` composes them into the instance. Some are applied
+Tools are the unit of provisioning. Each declares its mounts and an install
+script; `dbx` composes them into the instance. Some are applied
 unconditionally (the core `base` provisioning, Tailscale package install,
-VM swapfile); others are opt-in via `--tools`.
+VM swapfile). Codex and opencode are included by default; `--tools` adds
+more user-selectable tools.
 
 Run `dbx tools list` for the current set. At time of writing:
 
 | Tool | What it does |
 |------|--------------|
 | `claude` | Installs `claude-code` via mise; mounts `~/.claude` and `~/.claude.json` |
+| `codex` | Installs Codex CLI via mise; mounts `~/.codex/auth.json` and `~/.codex/config.toml` (file mounts, mode 600) |
 | `opencode` | Installs `opencode` via mise; mounts config dir and `auth.json` (file mount, mode 600) |
 | `k8s` | Installs Canonical k8s snap, bootstraps a single-node cluster with MetalLB, deploys a local registry, writes `~/.kube/config` |
 | `nix` | Installs Nix via the Determinate Systems installer |
@@ -123,7 +126,7 @@ Run `dbx tools list` for the current set. At time of writing:
 Example:
 
 ```
-dbx --tools claude,k8s
+dbx --tools k8s
 ```
 
 Adding a tool is a small Go file in `internal/tools/`; see [CLAUDE.md](CLAUDE.md).

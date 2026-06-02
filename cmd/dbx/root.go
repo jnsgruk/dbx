@@ -30,13 +30,21 @@ type createFlags struct {
 	forceNew  bool
 }
 
+var defaultUserTools = []string{"codex", "opencode"}
+
 func (f *createFlags) register(fs *pflag.FlagSet) {
 	fs.BoolVar(&f.vm, "vm", false, "create a virtual machine instead of a container")
 	fs.StringVarP(&f.image, "image", "i", config.Image, "base image")
 	fs.StringVarP(&f.cpu, "cpu", "c", "", "CPU limit (default 16 for VMs)")
 	fs.StringVarP(&f.mem, "mem", "m", "", "memory limit (default 16GiB for VMs)")
 	fs.StringVarP(&f.disk, "disk", "d", "", "disk size (default 100GiB for VMs)")
-	fs.StringVarP(&f.tools, "tools", "t", "", "comma-separated tools: "+strings.Join(tools.Names(), ", "))
+	fs.StringVarP(
+		&f.tools,
+		"tools",
+		"t",
+		"",
+		"additional comma-separated tools (defaults: "+strings.Join(defaultUserTools, ", ")+"; available: "+strings.Join(tools.Names(), ", ")+")",
+	)
 	fs.BoolVar(&f.tailscale, "tailscale", false, "authenticate tailscale for the instance")
 }
 
@@ -56,12 +64,13 @@ func (f *createFlags) applyVMDefaults(cmd *cobra.Command) {
 }
 
 func (f *createFlags) opts() (instance.CreateOpts, error) {
-	var selected []string
+	selected := append([]string{}, defaultUserTools...)
 	if f.tools != "" {
-		selected = strings.Split(f.tools, ",")
-		if err := tools.Validate(selected); err != nil {
-			return instance.CreateOpts{}, err
-		}
+		selected = append(selected, strings.Split(f.tools, ",")...)
+	}
+	selected = dedupeTools(selected)
+	if err := tools.Validate(selected); err != nil {
+		return instance.CreateOpts{}, err
 	}
 	return instance.CreateOpts{
 		Image: f.image,
@@ -71,6 +80,19 @@ func (f *createFlags) opts() (instance.CreateOpts, error) {
 		Disk:  f.disk,
 		Tools: selected,
 	}, nil
+}
+
+func dedupeTools(names []string) []string {
+	seen := make(map[string]bool, len(names))
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	return out
 }
 
 // findInstance returns the name of an existing instance to connect to based on

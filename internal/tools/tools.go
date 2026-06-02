@@ -1,7 +1,7 @@
 // Package tools models the installable/mountable tools applied to a dbx
 // instance. Each Tool contributes mounts and/or an install script. Some tools
 // are Always selected (the base provisioning, VM setup, Tailscale). Others
-// are opt-in via --tools on the CLI.
+// are selected by CLI defaults or via --tools.
 package tools
 
 import (
