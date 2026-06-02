@@ -157,6 +157,9 @@ func attachMounts(name string, opts CreateOpts, mounts []tools.Mount) error {
 			slog.Debug("Deferring file mount for VM, will copy after start", "device", m.Name)
 			continue
 		}
+		// Remove any device inherited from the base instance copy so the
+		// add below does not fail with "device already exists".
+		_ = lxc.DeviceRemove("", name, m.Name)
 		slog.Info("Adding mount", "device", m.Name, "source", m.Source, "dest", m.Dest)
 		if err := lxc.DeviceAdd("", name, m.Name, m.Source, m.Dest); err != nil {
 			return fmt.Errorf("adding mount %s: %w", m.Name, err)

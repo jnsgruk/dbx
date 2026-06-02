@@ -116,7 +116,9 @@ func BuildBase(baseName string, opts CreateOpts) error {
 
 	// Remove build-only mounts so the base is clean for copying.
 	for _, m := range buildMounts {
-		_ = lxc.DeviceRemove(baseProject, baseName, m.Name)
+		if err := lxc.DeviceRemove(baseProject, baseName, m.Name); err != nil {
+			slog.Warn("Removing build mount from base", "device", m.Name, "error", err)
+		}
 	}
 
 	slog.Info("Stopping base instance", "name", baseName)
