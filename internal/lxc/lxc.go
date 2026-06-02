@@ -47,7 +47,7 @@ func projectArgs(project string, args ...string) []string {
 	return result
 }
 
-func Init(project, name, image string, vm bool, cpu, mem string) error {
+func Init(project, name, image string, vm bool, cpu, mem, disk string) error {
 	args := projectArgs(project, "init", "-q", image, name)
 	if vm {
 		args = append(args, "--vm")
@@ -57,6 +57,9 @@ func Init(project, name, image string, vm bool, cpu, mem string) error {
 	}
 	if mem != "" {
 		args = append(args, "-c", "limits.memory="+mem)
+	}
+	if disk != "" {
+		args = append(args, "-d", "root,size="+disk)
 	}
 	_, err := Run(args...)
 	return err

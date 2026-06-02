@@ -377,14 +377,8 @@ func runTailscaleAuth(ctx tools.Context, name, key string) error {
 func createFull(name string, opts CreateOpts, st state.State, cwd string) (string, error) {
 	slog.Info("Creating instance (full provisioning)", "name", name, "image", opts.Image, "vm", opts.VM)
 
-	if err := lxc.Init("", name, opts.Image, opts.VM, opts.CPU, opts.Mem); err != nil {
+	if err := lxc.Init("", name, opts.Image, opts.VM, opts.CPU, opts.Mem, opts.Disk); err != nil {
 		return "", fmt.Errorf("initializing instance: %w", err)
-	}
-
-	if opts.Disk != "" {
-		if err := lxc.DeviceOverride(name, "root", "size="+opts.Disk); err != nil {
-			return "", fmt.Errorf("setting disk size: %w", err)
-		}
 	}
 
 	ctx := toolContext(opts, "", name, cwd)

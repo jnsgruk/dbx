@@ -13,6 +13,10 @@ import (
 
 const baseProject = "dbx"
 
+// baseVMDisk is the disk size allocated to base VM instances during build.
+// Must be large enough for the OS plus base provisioning (e.g. 8G swapfile).
+const baseVMDisk = "50GiB"
+
 func BaseName(image string, vm bool) string {
 	kind := "container"
 	if vm {
@@ -39,7 +43,12 @@ func BuildBase(baseName string, opts CreateOpts) error {
 
 	slog.Info("Building base instance", "name", baseName, "image", opts.Image, "vm", opts.VM)
 
-	if err := lxc.Init(baseProject, baseName, opts.Image, opts.VM, "", ""); err != nil {
+	disk := ""
+	if opts.VM {
+		disk = baseVMDisk
+	}
+
+	if err := lxc.Init(baseProject, baseName, opts.Image, opts.VM, "", "", disk); err != nil {
 		return fmt.Errorf("initializing base instance: %w", err)
 	}
 
