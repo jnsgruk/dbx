@@ -277,6 +277,11 @@ func Create(purpose string, opts CreateOpts, st state.State) (string, error) {
 		return "", fmt.Errorf("copying from base: %w", err)
 	}
 
+	if !opts.VM {
+		if err := lxc.ConfigSet(name, "security.nesting", "true"); err != nil {
+			return "", fmt.Errorf("setting nesting: %w", err)
+		}
+	}
 	if opts.CPU != "" {
 		if err := lxc.ConfigSet(name, "limits.cpu", opts.CPU); err != nil {
 			return "", fmt.Errorf("setting cpu limit: %w", err)

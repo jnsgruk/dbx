@@ -2,6 +2,55 @@ package lxc
 
 import "testing"
 
+func TestInitArgs(t *testing.T) {
+	tests := []struct {
+		name    string
+		project string
+		vm      bool
+		cpu     string
+		mem     string
+		disk    string
+		want    []string
+	}{
+		{
+			name: "container enables nesting",
+			want: []string{
+				"init", "-q", "ubuntu:resolute", "test",
+				"-c", "security.nesting=true",
+			},
+		},
+		{
+			name:    "vm skips container nesting",
+			vm:      true,
+			cpu:     "4",
+			mem:     "8GiB",
+			disk:    "50GiB",
+			project: "dbx",
+			want: []string{
+				"init", "--project", "dbx", "-q", "ubuntu:resolute", "test",
+				"--vm",
+				"-c", "limits.cpu=4",
+				"-c", "limits.memory=8GiB",
+				"-d", "root,size=50GiB",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := initArgs(tt.project, "test", "ubuntu:resolute", tt.vm, tt.cpu, tt.mem, tt.disk)
+			if len(got) != len(tt.want) {
+				t.Fatalf("initArgs() = %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("initArgs() = %v, want %v", got, tt.want)
+				}
+			}
+		})
+	}
+}
+
 func TestProjectArgs(t *testing.T) {
 	tests := []struct {
 		name    string

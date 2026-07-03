@@ -47,10 +47,12 @@ func projectArgs(project string, args ...string) []string {
 	return result
 }
 
-func Init(project, name, image string, vm bool, cpu, mem, disk string) error {
+func initArgs(project, name, image string, vm bool, cpu, mem, disk string) []string {
 	args := projectArgs(project, "init", "-q", image, name)
 	if vm {
 		args = append(args, "--vm")
+	} else {
+		args = append(args, "-c", "security.nesting=true")
 	}
 	if cpu != "" {
 		args = append(args, "-c", "limits.cpu="+cpu)
@@ -61,6 +63,11 @@ func Init(project, name, image string, vm bool, cpu, mem, disk string) error {
 	if disk != "" {
 		args = append(args, "-d", "root,size="+disk)
 	}
+	return args
+}
+
+func Init(project, name, image string, vm bool, cpu, mem, disk string) error {
+	args := initArgs(project, name, image, vm, cpu, mem, disk)
 	_, err := Run(args...)
 	return err
 }
