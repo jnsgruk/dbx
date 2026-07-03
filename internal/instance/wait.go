@@ -15,10 +15,11 @@ import (
 const (
 	pollInterval = 200 * time.Millisecond
 
-	UserWaitTimeout    = 120 * time.Second
-	NetworkWaitTimeout = 60 * time.Second
-	SnapdWaitTimeout   = 60 * time.Second
-	ShellWaitTimeout   = 60 * time.Second
+	UserWaitTimeout      = 120 * time.Second
+	CloudInitWaitTimeout = 180 * time.Second
+	NetworkWaitTimeout   = 60 * time.Second
+	SnapdWaitTimeout     = 60 * time.Second
+	ShellWaitTimeout     = 60 * time.Second
 )
 
 // pollUntil polls check() until it returns true or timeout elapses.
@@ -41,6 +42,21 @@ func WaitForUser(project, name, user string, timeout time.Duration) error {
 	})
 	if !ok {
 		return fmt.Errorf("timed out waiting for user %q in instance %q", user, name)
+	}
+	return nil
+}
+
+// WaitForCloudInit blocks until cloud-init has completed. If the image does
+// not provide cloud-init, the wait is skipped.
+func WaitForCloudInit(project, name string, timeout time.Duration) error {
+	if _, err := lxc.Exec(project, name, "sh", "-c", "command -v cloud-init >/dev/null 2>&1"); err != nil {
+		slog.Debug("Skipping cloud-init wait, command unavailable", "name", name)
+		return nil
+	}
+
+	timeoutArg := fmt.Sprintf("%.0fs", timeout.Seconds())
+	if _, err := lxc.Exec(project, name, "timeout", timeoutArg, "cloud-init", "status", "--wait"); err != nil {
+		return fmt.Errorf("waiting for cloud-init in instance %q: %w", name, err)
 	}
 	return nil
 }

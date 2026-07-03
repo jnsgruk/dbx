@@ -1,6 +1,10 @@
 package lxc
 
-import "testing"
+import (
+	"slices"
+	"strings"
+	"testing"
+)
 
 func TestInitArgs(t *testing.T) {
 	tests := []struct {
@@ -102,6 +106,24 @@ func TestProjectArgs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestExecScriptArgs(t *testing.T) {
+	got := execScriptArgs("dbx", "test", "jon")
+	want := []string{
+		"exec", "--project", "dbx", "test", "--",
+		"sudo", "-u", "jon", "bash", "-s",
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("execScriptArgs() = %v, want %v", got, want)
+	}
+}
+
+func TestCommandStringQuotesArgs(t *testing.T) {
+	got := formatCommand([]string{"exec", "test", "--", "bash", "-c", "echo hello"})
+	if !strings.Contains(got, "'echo hello'") {
+		t.Fatalf("formatCommand() = %q, want shell-quoted argument", got)
 	}
 }
 

@@ -19,20 +19,43 @@ func Run(args ...string) ([]byte, error) {
 }
 
 func RunStdin(stdin io.Reader, args ...string) ([]byte, error) {
-	commandString := "lxc " + strings.Join(args, " ")
-	slog.Debug("Starting command", "command", commandString)
+	cmdString := formatCommand(args)
+	slog.Debug("Starting command", "command", cmdString)
 
 	start := time.Now()
 	cmd := exec.Command("lxc", args...)
 	cmd.Stdin = stdin
 	output, err := cmd.CombinedOutput()
 
-	slog.Debug("Finished command", "command", commandString, "elapsed", time.Since(start))
+	slog.Debug("Finished command", "command", cmdString, "elapsed", time.Since(start))
 
 	if err != nil {
-		return output, fmt.Errorf("%s: %w\n%s", commandString, err, string(output))
+		return output, fmt.Errorf("%s: %w\n%s", cmdString, err, string(output))
 	}
 	return output, nil
+}
+
+func formatCommand(args []string) string {
+	return "lxc " + shellescape.QuoteCommand(args)
+}
+
+func runStdinStreaming(stdin io.Reader, args ...string) error {
+	cmdString := formatCommand(args)
+	slog.Debug("Starting command", "command", cmdString)
+
+	start := time.Now()
+	cmd := exec.Command("lxc", args...)
+	cmd.Stdin = stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+
+	slog.Debug("Finished command", "command", cmdString, "elapsed", time.Since(start))
+
+	if err != nil {
+		return fmt.Errorf("%s: %w", cmdString, err)
+	}
+	return nil
 }
 
 // projectArgs inserts --project after the subcommand (first arg).
@@ -146,9 +169,12 @@ func ExecStdin(project, name string, stdin io.Reader, args ...string) ([]byte, e
 	return RunStdin(stdin, cmdArgs...)
 }
 
+func execScriptArgs(project, name, user string) []string {
+	return append(projectArgs(project, "exec", name, "--"), "sudo", "-u", user, "bash", "-s")
+}
+
 func ExecScript(project, name, user, script string) error {
-	_, err := Exec(project, name, "sudo", "-u", user, "bash", "-c", script)
-	return err
+	return runStdinStreaming(strings.NewReader(script), execScriptArgs(project, name, user)...)
 }
 
 func FilePush(name, source, dest string) error {

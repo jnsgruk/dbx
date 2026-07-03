@@ -95,6 +95,11 @@ func BuildBase(baseName string, opts CreateOpts) error {
 		return err
 	}
 
+	slog.Info("Waiting for cloud-init", "name", baseName)
+	if err := WaitForCloudInit(baseProject, baseName, CloudInitWaitTimeout); err != nil {
+		return err
+	}
+
 	if err := CreateUser(baseProject, baseName, config.User, hostUID()); err != nil {
 		return err
 	}

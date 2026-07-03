@@ -402,6 +402,10 @@ func createFull(name string, opts CreateOpts, st state.State, cwd string) (strin
 	if err := startAndWaitForUser(name, "ubuntu"); err != nil {
 		return "", err
 	}
+	slog.Info("Waiting for cloud-init", "name", name)
+	if err := WaitForCloudInit("", name, CloudInitWaitTimeout); err != nil {
+		return "", err
+	}
 	if err := finalizeFileMounts(name, opts, mounts); err != nil {
 		return "", err
 	}
