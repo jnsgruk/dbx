@@ -30,9 +30,10 @@ func TestCodexInstallScript(t *testing.T) {
 	if !ok {
 		t.Fatal("codex tool not registered")
 	}
-	script := tool.InstallScript(Context{})
-	if !strings.Contains(script, "mise use -g codex@latest") {
-		t.Errorf("install script missing mise install: %s", script)
+	want := `mise use -g nodejs
+mise use -g npm:@openai/codex`
+	if got := tool.InstallScript(Context{}); got != want {
+		t.Errorf("InstallScript() = %q, want %q", got, want)
 	}
 }
 

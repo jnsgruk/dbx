@@ -29,6 +29,9 @@ func (codex) Mounts(ctx Context) []Mount {
 	}
 }
 
-func (codex) InstallScript(Context) string { return "mise use -g codex@latest" }
+func (codex) InstallScript(Context) string {
+	return `mise use -g nodejs
+mise use -g npm:@openai/codex`
+}
 
 func init() { Register(codex{}) }

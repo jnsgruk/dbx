@@ -118,7 +118,7 @@ Run `dbx tools list` for the current set. At time of writing:
 | Tool | What it does |
 |------|--------------|
 | `claude` | Installs `claude-code` via mise; mounts `~/.claude` and `~/.claude.json` |
-| `codex` | Installs Codex CLI via mise; mounts `~/.codex/auth.json` and copies `~/.codex/config.toml` into the instance (mode 600) |
+| `codex` | Installs Node.js and the Codex CLI npm package via mise; mounts `~/.codex/auth.json` and copies `~/.codex/config.toml` into the instance (mode 600) |
 | `opencode` | Installs `opencode` via mise; mounts config dir and `auth.json` (file mount, mode 600) |
 | `k8s` | Installs Canonical k8s snap, bootstraps a single-node cluster with MetalLB, deploys a local registry, writes `~/.kube/config` |
 | `nix` | Installs Nix via the Determinate Systems installer |
