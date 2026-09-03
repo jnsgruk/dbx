@@ -12,13 +12,14 @@ import (
 
 // Mount describes a host path exposed inside the instance.
 type Mount struct {
-	Name   string
-	Source string
-	Dest   string
-	File   bool   // true for single files (VMs copy these instead of mounting)
-	Copy   bool   // true for single files copied instead of mounted
-	Mode   string // file permission mode for copied files, e.g. "600"
-	Build  bool   // true if the mount is needed during base image build
+	Name      string
+	Source    string
+	Dest      string
+	File      bool                         // true for single files (VMs copy these instead of mounting)
+	Copy      bool                         // true for single files copied instead of mounted
+	Mode      string                       // file permission mode for copied files, e.g. "600"
+	Build     bool                         // true if the mount is needed during base image build
+	Transform func([]byte) ([]byte, error) // optional host-side transform before copying
 }
 
 // Context carries the information a tool needs to compute its mounts and

@@ -66,11 +66,105 @@ func TestCodexMountsOnlyAuthAndConfig(t *testing.T) {
 		if m.Mode != "600" {
 			t.Errorf("%s Mode = %q, want %q", m.Name, m.Mode, "600")
 		}
+		if m.Name == "codexconfig" && m.Transform == nil {
+			t.Error("codexconfig should transform the guest copy")
+		}
 	}
 	for dest, entry := range want {
 		if !entry.found {
 			t.Errorf("missing codex mount dest: %s", dest)
 		}
+	}
+}
+
+func TestDisableNodeREPL(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "without enabled key",
+			input: "[mcp_servers.node_repl]\ncommand = \"/desktop/node_repl\"\n",
+			want:  "[mcp_servers.node_repl]\ncommand = \"/desktop/node_repl\"\nenabled = false\n",
+		},
+		{
+			name:  "enabled true",
+			input: "[mcp_servers.node_repl]\nenabled = true # desktop only\n",
+			want:  "[mcp_servers.node_repl]\nenabled = false # desktop only\n",
+		},
+		{
+			name:  "enabled false",
+			input: "[mcp_servers.node_repl]\nenabled = false\n",
+			want:  "[mcp_servers.node_repl]\nenabled = false\n",
+		},
+		{
+			name: "followed by nested env table",
+			input: "[mcp_servers.node_repl]\ncommand = \"node_repl\"\n\n" +
+				"[mcp_servers.node_repl.env]\nenabled = \"credential\"\nTOKEN = \"secret\"\n",
+			want: "[mcp_servers.node_repl]\ncommand = \"node_repl\"\n\n" +
+				"enabled = false\n[mcp_servers.node_repl.env]\nenabled = \"credential\"\nTOKEN = \"secret\"\n",
+		},
+		{
+			name: "followed by unrelated table",
+			input: "[mcp_servers.node_repl]\ncommand = \"node_repl\"\n" +
+				"[mcp_servers.github]\nenabled = true\n",
+			want: "[mcp_servers.node_repl]\ncommand = \"node_repl\"\n" +
+				"enabled = false\n[mcp_servers.github]\nenabled = true\n",
+		},
+		{
+			name:  "at end of file without trailing newline",
+			input: "model = \"gpt-5\"\n[mcp_servers.node_repl]\nargs = []",
+			want:  "model = \"gpt-5\"\n[mcp_servers.node_repl]\nargs = []\nenabled = false",
+		},
+		{
+			name:  "no node repl table",
+			input: "# keep this exactly\nmodel = \"gpt-5\"\n[mcp_servers.github]\nenabled = true\n",
+			want:  "# keep this exactly\nmodel = \"gpt-5\"\n[mcp_servers.github]\nenabled = true\n",
+		},
+		{
+			name: "similarly prefixed server",
+			input: "[mcp_servers.node_repl_other]\nenabled = true\n" +
+				"[mcp_servers.node_repl.extra]\nenabled = true\n",
+			want: "[mcp_servers.node_repl_other]\nenabled = true\n" +
+				"[mcp_servers.node_repl.extra]\nenabled = true\n",
+		},
+		{
+			name: "preserves unrelated comments and config",
+			input: "# preferred model\nmodel = \"gpt-5\"\n\n" +
+				"[mcp_servers.node_repl] # from Desktop\nargs = [] # keep\n\n" +
+				"# another server\n[mcp_servers.docs]\ncommand = \"docs\"\n",
+			want: "# preferred model\nmodel = \"gpt-5\"\n\n" +
+				"[mcp_servers.node_repl] # from Desktop\nargs = [] # keep\n\n" +
+				"enabled = false\n# another server\n[mcp_servers.docs]\ncommand = \"docs\"\n",
+		},
+		{
+			name:  "preserves CRLF trailing newline",
+			input: "[mcp_servers.node_repl]\r\ncommand = \"node_repl\"\r\n",
+			want:  "[mcp_servers.node_repl]\r\ncommand = \"node_repl\"\r\nenabled = false\r\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := disableNodeREPL([]byte(tt.input))
+			if err != nil {
+				t.Fatalf("disableNodeREPL() returned error: %v", err)
+			}
+			if string(got) != tt.want {
+				t.Errorf("disableNodeREPL() = %q, want %q", got, tt.want)
+			}
+			if tt.name == "enabled false" && strings.Count(string(got), "enabled = false") != 1 {
+				t.Errorf("disableNodeREPL() duplicated enabled key: %q", got)
+			}
+		})
+	}
+}
+
+func TestDisableNodeREPLRejectsInvalidEnabledValue(t *testing.T) {
+	_, err := disableNodeREPL([]byte("[mcp_servers.node_repl]\nenabled = \"yes\"\n"))
+	if err == nil {
+		t.Fatal("disableNodeREPL() should reject a non-boolean enabled value")
 	}
 }
 

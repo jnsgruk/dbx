@@ -118,7 +118,7 @@ Run `dbx tools list` for the current set. At time of writing:
 | Tool | What it does |
 |------|--------------|
 | `claude` | Installs `claude-code` via mise; mounts `~/.claude` and `~/.claude.json` |
-| `codex` | Installs Node.js and the Codex CLI npm package via mise; mounts `~/.codex/auth.json` and copies `~/.codex/config.toml` into the instance (mode 600) |
+| `codex` | Installs Node.js and the Codex CLI npm package via mise; mounts `~/.codex/auth.json` and copies `~/.codex/config.toml` into the instance (mode 600), disabling the ChatGPT Desktop-only `node_repl` MCP server in the guest copy |
 | `opencode` | Installs `opencode` via mise; mounts config dir and `auth.json` (file mount, mode 600) |
 | `k8s` | Installs Canonical k8s snap, bootstraps a single-node cluster with MetalLB, deploys a local registry, writes `~/.kube/config` |
 | `nix` | Installs Nix via the Determinate Systems installer |
@@ -150,6 +150,11 @@ Adding a tool is a small Go file in `internal/tools/`; see [CLAUDE.md](CLAUDE.md
 5. **Readiness gates.** Creation waits, with bounded timeouts, for the
    user to exist, DNS to resolve, `snapd` to be responsive, and an
    interactive shell to succeed.
+
+When Codex is selected, dbx copies the host Codex configuration into each new
+guest and disables the ChatGPT Desktop-only `node_repl` MCP server in that
+copy. The host configuration is unchanged, and existing instances are not
+retroactively updated.
 
 ## State
 

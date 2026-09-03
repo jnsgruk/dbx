@@ -1,9 +1,13 @@
 package instance
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
+
+	"github.com/jnsgruk/dbx/internal/tools"
 )
 
 func TestImageBase(t *testing.T) {
@@ -68,6 +72,52 @@ func TestGenerateName(t *testing.T) {
 	}
 	if name == name2 {
 		t.Errorf("two GenerateName calls produced identical names: %q", name)
+	}
+}
+
+func TestPrepareMountSourceTransformsSecureCopy(t *testing.T) {
+	hostSource := filepath.Join(t.TempDir(), "config.toml")
+	hostContents := []byte("secret = true\n")
+	if err := os.WriteFile(hostSource, hostContents, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	prepared, cleanup, err := prepareMountSource(tools.Mount{
+		Source: hostSource,
+		Transform: func(input []byte) ([]byte, error) {
+			return append(input, []byte("enabled = false\n")...), nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("prepareMountSource() returned error: %v", err)
+	}
+	t.Cleanup(cleanup)
+
+	info, err := os.Stat(prepared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Errorf("temporary mode = %o, want 600", got)
+	}
+	gotHost, err := os.ReadFile(hostSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gotHost) != string(hostContents) {
+		t.Errorf("host source changed to %q", gotHost)
+	}
+	gotPrepared, err := os.ReadFile(prepared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gotPrepared) != "secret = true\nenabled = false\n" {
+		t.Errorf("prepared source = %q", gotPrepared)
+	}
+
+	cleanup()
+	if _, err := os.Stat(prepared); !os.IsNotExist(err) {
+		t.Errorf("temporary file still exists after cleanup: %v", err)
 	}
 }
 

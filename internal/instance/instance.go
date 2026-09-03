@@ -214,8 +214,14 @@ func finalizeFileMounts(name string, opts CreateOpts, mounts []tools.Mount) erro
 		if _, err := os.Stat(m.Source); os.IsNotExist(err) {
 			continue
 		}
+		source, cleanup, err := prepareMountSource(m)
+		if err != nil {
+			return fmt.Errorf("preparing file %s: %w", m.Name, err)
+		}
 		slog.Info("Copying file into instance", "source", m.Source, "dest", m.Dest)
-		if err := lxc.FilePush(name, m.Source, m.Dest); err != nil {
+		err = lxc.FilePush(name, source, m.Dest)
+		cleanup()
+		if err != nil {
 			return fmt.Errorf("copying file %s: %w", m.Name, err)
 		}
 		parent := filepath.Dir(m.Dest)
@@ -233,6 +239,43 @@ func finalizeFileMounts(name string, opts CreateOpts, mounts []tools.Mount) erro
 	}
 
 	return nil
+}
+
+func prepareMountSource(m tools.Mount) (string, func(), error) {
+	if m.Transform == nil {
+		return m.Source, func() {}, nil
+	}
+
+	contents, err := os.ReadFile(m.Source)
+	if err != nil {
+		return "", func() {}, fmt.Errorf("reading source: %w", err)
+	}
+	contents, err = m.Transform(contents)
+	if err != nil {
+		return "", func() {}, fmt.Errorf("transforming source: %w", err)
+	}
+
+	temporary, err := os.CreateTemp("", "dbx-file-*")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("creating temporary file: %w", err)
+	}
+	path := temporary.Name()
+	cleanup := func() { _ = os.Remove(path) }
+	if err := temporary.Chmod(0o600); err != nil {
+		_ = temporary.Close()
+		cleanup()
+		return "", func() {}, fmt.Errorf("setting temporary file permissions: %w", err)
+	}
+	if _, err := temporary.Write(contents); err != nil {
+		_ = temporary.Close()
+		cleanup()
+		return "", func() {}, fmt.Errorf("writing temporary file: %w", err)
+	}
+	if err := temporary.Close(); err != nil {
+		cleanup()
+		return "", func() {}, fmt.Errorf("closing temporary file: %w", err)
+	}
+	return path, cleanup, nil
 }
 
 // recordInstance appends the instance to the state entry for cwd and persists.
