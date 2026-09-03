@@ -12,7 +12,7 @@ type codex struct{}
 
 func (codex) Name() string { return "codex" }
 func (codex) Description() string {
-	return "Codex CLI (via mise) with config/auth mounts"
+	return "Codex CLI (via pnpm) with config/auth mounts"
 }
 
 func (codex) Mounts(ctx Context) []Mount {
@@ -147,8 +147,11 @@ func splitConfigLines(input []byte) []configLine {
 }
 
 func (codex) InstallScript(Context) string {
-	return `mise use -g nodejs
-mise use -g npm:@openai/codex`
+	return `command -v pnpm >/dev/null || mise use -g pnpm@latest
+mise use -g nodejs
+mkdir -p ~/.local/bin
+pnpm config set global-bin-dir ~/.local/bin
+pnpm add --global @openai/codex`
 }
 
 func init() { Register(codex{}) }

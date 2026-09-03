@@ -8,12 +8,12 @@ import (
 
 // base provides the core provisioning baked into every instance: runs
 // probuntu's provision-headless, installs ssh/ssh-import-id, imports GitHub
-// keys, tweaks starship, and enables IPv4/IPv6 forwarding. Also contributes
-// the universal mounts (project dir and ~/scripts).
+// keys, installs pnpm, tweaks starship, and enables IPv4/IPv6 forwarding.
+// Also contributes the universal mounts (project dir and ~/scripts).
 type base struct{}
 
 func (base) Name() string        { return "base" }
-func (base) Description() string { return "Core provisioning (probuntu, ssh, starship, sysctl)" }
+func (base) Description() string { return "Core provisioning (probuntu, pnpm, ssh, starship, sysctl)" }
 func (base) Always(Context) bool { return true }
 func (base) Hidden() bool        { return true }
 
@@ -47,6 +47,7 @@ func (base) InstallScript(ctx Context) string {
 	return strings.Join([]string{
 		fmt.Sprintf("mkdir -p ~/.local ~/.config && sudo chown -R %[1]s:%[1]s ~/.local ~/.config", ctx.User),
 		"source ~/scripts/probuntu/provision-headless",
+		"mise use -g pnpm@latest",
 		"sudo apt-get install -y ssh-import-id openssh-server",
 		"ssh-import-id-gh " + ctx.GitHubUser,
 		`printf '[hostname]\nssh_only = false\n' >> ~/.config/starship.toml`,

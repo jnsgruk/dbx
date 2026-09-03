@@ -111,14 +111,17 @@ Tools are the unit of provisioning. Each declares its mounts and an install
 script; `dbx` composes them into the instance. Some are applied
 unconditionally (the core `base` provisioning, Tailscale package install,
 VM swapfile). Codex and opencode are included by default; `--tools` adds
-more user-selectable tools.
+more user-selectable tools. The base provisioning installs pnpm in every
+container and VM. Rebuild an older cached base with `dbx base rm` to make pnpm
+available to guests copied from it; the Codex installer also handles older
+bases automatically.
 
 Run `dbx tools list` for the current set. At time of writing:
 
 | Tool | What it does |
 |------|--------------|
 | `claude` | Installs `claude-code` via mise; mounts `~/.claude` and `~/.claude.json` |
-| `codex` | Installs Node.js and the Codex CLI npm package via mise; mounts `~/.codex/auth.json` and copies `~/.codex/config.toml` into the instance (mode 600), disabling the ChatGPT Desktop-only `node_repl` MCP server in the guest copy |
+| `codex` | Installs Node.js via mise and the Codex CLI package via pnpm; mounts `~/.codex/auth.json` and copies `~/.codex/config.toml` into the instance (mode 600), disabling the ChatGPT Desktop-only `node_repl` MCP server in the guest copy |
 | `opencode` | Installs `opencode` via mise; mounts config dir and `auth.json` (file mount, mode 600) |
 | `k8s` | Installs Canonical k8s snap, bootstraps a single-node cluster with MetalLB, deploys a local registry, writes `~/.kube/config` |
 | `nix` | Installs Nix via the Determinate Systems installer |

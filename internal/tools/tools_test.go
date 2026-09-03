@@ -27,6 +27,9 @@ func TestBaseToolReferencesUser(t *testing.T) {
 	if !strings.Contains(script, "testuser") {
 		t.Errorf("base install script does not reference the user: %s", script)
 	}
+	if !strings.Contains(script, "mise use -g pnpm@latest") {
+		t.Errorf("base install script does not install pnpm: %s", script)
+	}
 }
 
 func TestTailscaleToolInstallsPackage(t *testing.T) {

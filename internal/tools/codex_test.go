@@ -30,8 +30,11 @@ func TestCodexInstallScript(t *testing.T) {
 	if !ok {
 		t.Fatal("codex tool not registered")
 	}
-	want := `mise use -g nodejs
-mise use -g npm:@openai/codex`
+	want := `command -v pnpm >/dev/null || mise use -g pnpm@latest
+mise use -g nodejs
+mkdir -p ~/.local/bin
+pnpm config set global-bin-dir ~/.local/bin
+pnpm add --global @openai/codex`
 	if got := tool.InstallScript(Context{}); got != want {
 		t.Errorf("InstallScript() = %q, want %q", got, want)
 	}
