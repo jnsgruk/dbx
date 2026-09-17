@@ -16,6 +16,7 @@ for building something similar.
 - [Commands](#commands)
 - [Flags](#flags)
 - [Tools](#tools)
+- [ChatGPT Desktop over SSH](#chatgpt-desktop-over-ssh)
 - [How it works](#how-it-works)
 - [State](#state)
 - [Tailscale](#tailscale)
@@ -112,16 +113,15 @@ script; `dbx` composes them into the instance. Some are applied
 unconditionally (the core `base` provisioning, Tailscale package install,
 VM swapfile). Codex and opencode are included by default; `--tools` adds
 more user-selectable tools. The base provisioning installs pnpm in every
-container and VM. Rebuild an older cached base with `dbx base rm` to make pnpm
-available to guests copied from it; the Codex installer also handles older
-bases automatically.
+container and VM. Codex is installed in every new guest, including guests
+copied from older cached bases, using OpenAI's standalone installer.
 
 Run `dbx tools list` for the current set. At time of writing:
 
 | Tool | What it does |
 |------|--------------|
 | `claude` | Installs `claude-code` via mise; mounts `~/.claude` and `~/.claude.json` |
-| `codex` | Installs Node.js via mise and the Codex CLI package via pnpm; mounts `~/.codex/auth.json` and copies `~/.codex/config.toml` into the instance (mode 600), disabling the ChatGPT Desktop-only `node_repl` MCP server in the guest copy |
+| `codex` | Installs the standalone Codex CLI and exposes it on the SSH PATH; mounts `~/.codex/auth.json` and copies `~/.codex/config.toml` into the instance (mode 600), disabling the ChatGPT Desktop-only `node_repl` MCP server in the guest copy |
 | `opencode` | Installs `opencode` via mise; mounts config dir and `auth.json` (file mount, mode 600) |
 | `k8s` | Installs Canonical k8s snap, bootstraps a single-node cluster with MetalLB, deploys a local registry, writes `~/.kube/config` |
 | `nix` | Installs Nix via the Determinate Systems installer |
@@ -133,6 +133,48 @@ dbx --tools k8s
 ```
 
 Adding a tool is a small Go file in `internal/tools/`; see [CLAUDE.md](CLAUDE.md).
+
+## ChatGPT Desktop over SSH
+
+Every new devbox includes Codex, even when you add other `--tools`. The
+standalone installation has no Node.js dependency and is linked at
+`/usr/local/bin/codex` so SSH sessions can find it without interactive shell
+initialisation. Provisioning checks that the CLI and its `app-server` command
+can run. Existing devboxes are not upgraded when you reconnect.
+
+To add a devbox as a remote project in ChatGPT Desktop on Linux:
+
+1. Create a devbox with `dbx create my-devbox` (add `--tailscale` for tailnet
+   access). Get its reachable address from `lxc list my-devbox`, or use its
+   Tailscale DNS name when enrolled.
+2. Add a concrete alias to `~/.ssh/config` on the desktop machine:
+
+   ```sshconfig
+   Host my-devbox
+     HostName <reachable-IP-or-Tailscale-DNS-name>
+     User jon
+     IdentityFile ~/.ssh/id_ed25519
+   ```
+
+   Use the configured dbx username and a key whose public key is in your
+   GitHub account (base provisioning imports those keys).
+3. Verify SSH and Codex authentication:
+
+   ```bash
+   ssh my-devbox 'codex --version'
+   ssh my-devbox 'codex login status'
+   ```
+
+   dbx shares the host's `~/.codex/auth.json` when present (copied for VMs).
+   If it is absent or expired, sign in on the guest with
+   `ssh -t my-devbox 'codex login --device-auth'`.
+4. In ChatGPT Desktop, open **Settings > Connections**, add or enable the
+   SSH host, and select `/home/jon/<project-directory-name>`.
+
+The desktop app starts and manages the remote app server through SSH; no
+separate Codex daemon or listening TCP port is needed. See OpenAI's
+[SSH connection guide](https://learn.chatgpt.com/docs/remote-connections#connect-to-an-ssh-host)
+and [CLI installation guide](https://learn.chatgpt.com/docs/codex/cli).
 
 ## How it works
 

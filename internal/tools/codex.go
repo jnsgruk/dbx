@@ -12,7 +12,7 @@ type codex struct{}
 
 func (codex) Name() string { return "codex" }
 func (codex) Description() string {
-	return "Codex CLI (via pnpm) with config/auth mounts"
+	return "Codex CLI (standalone, SSH-ready) with config/auth mounts"
 }
 
 func (codex) Mounts(ctx Context) []Mount {
@@ -147,11 +147,14 @@ func splitConfigLines(input []byte) []configLine {
 }
 
 func (codex) InstallScript(Context) string {
-	return `command -v pnpm >/dev/null || mise use -g pnpm@latest
-mise use -g nodejs
-mkdir -p ~/.local/bin
-pnpm config set global-bin-dir ~/.local/bin
-pnpm add --global @openai/codex`
+	// Install in each guest rather than the cached base so older bases also
+	// get a current CLI. The system PATH link makes it available to SSH without
+	// requiring interactive shell setup or a Node.js runtime.
+	return `cd "$HOME"
+curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 CODEX_INSTALL_DIR="$HOME/.local/bin" sh
+sudo ln -sfn "$HOME/.local/bin/codex" /usr/local/bin/codex
+/usr/local/bin/codex --version
+/usr/local/bin/codex app-server --help >/dev/null`
 }
 
 func init() { Register(codex{}) }

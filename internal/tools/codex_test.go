@@ -30,11 +30,11 @@ func TestCodexInstallScript(t *testing.T) {
 	if !ok {
 		t.Fatal("codex tool not registered")
 	}
-	want := `command -v pnpm >/dev/null || mise use -g pnpm@latest
-mise use -g nodejs
-mkdir -p ~/.local/bin
-pnpm config set global-bin-dir ~/.local/bin
-pnpm add --global @openai/codex`
+	want := `cd "$HOME"
+curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 CODEX_INSTALL_DIR="$HOME/.local/bin" sh
+sudo ln -sfn "$HOME/.local/bin/codex" /usr/local/bin/codex
+/usr/local/bin/codex --version
+/usr/local/bin/codex app-server --help >/dev/null`
 	if got := tool.InstallScript(Context{}); got != want {
 		t.Errorf("InstallScript() = %q, want %q", got, want)
 	}
